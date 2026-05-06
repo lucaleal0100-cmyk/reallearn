@@ -21,8 +21,12 @@ type Evaluation = {
   }>;
 };
 
-type Step = "text" | "answers" | "result";
+type Step = "text" | "answers" | "result" | "chat";
 type InputMode = "paste" | "pdf";
+type ChatMessage = {
+  role: "user" | "assistant";
+  content: string;
+};
 
 const MAX_PDF_SIZE = 10 * 1024 * 1024;
 
@@ -44,6 +48,9 @@ export default function Home() {
   const [inputMode, setInputMode] = useState<InputMode>("paste");
   const [pdfFileName, setPdfFileName] = useState("");
   const [pdfInfo, setPdfInfo] = useState("");
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatInput, setChatInput] = useState("");
+  const [isChatLoading, setIsChatLoading] = useState(false);
 
   const filledAnswers = useMemo(() => {
     return questions.filter((question) => answers[question.id]?.trim()).length;
@@ -174,6 +181,54 @@ export default function Home() {
     }
   }
 
+  async function sendChatMessage() {
+    setError("");
+
+    const message = chatInput.trim();
+
+    if (workText.trim().length < 300) {
+      setError("Adicione um texto ou PDF com pelo menos 300 caracteres antes de usar o chat.");
+      return;
+    }
+
+    if (!message) {
+      setError("Digite uma dúvida para enviar ao tutor.");
+      return;
+    }
+
+    const nextMessages: ChatMessage[] = [...chatMessages, { role: "user", content: message }];
+    setChatMessages(nextMessages);
+    setChatInput("");
+    setIsChatLoading(true);
+
+    try {
+      const response = await fetch("/api/tutor-chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          workText,
+          message,
+          history: chatMessages
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error ?? "Não foi possível responder agora.");
+      }
+
+      setChatMessages([...nextMessages, { role: "assistant", content: data.reply }]);
+    } catch (chatError) {
+      setChatMessages(chatMessages);
+      setError(chatError instanceof Error ? chatError.message : "Erro inesperado no chat.");
+    } finally {
+      setIsChatLoading(false);
+    }
+  }
+
   function resetAll() {
     setStep("text");
     setWorkText("");
@@ -182,6 +237,8 @@ export default function Home() {
     setEvaluation(null);
     setPdfFileName("");
     setPdfInfo("");
+    setChatMessages([]);
+    setChatInput("");
     setError("");
   }
 
@@ -222,14 +279,25 @@ export default function Home() {
 
         <div className="workspace">
           <div className="tabs" aria-label="Etapas">
-            <button className={`tab ${step === "text" ? "active" : ""}`} type="button">
+            <button className={`tab ${step === "text" ? "active" : ""}`} type="button" onClick={() => setStep("text")}>
               Trabalho
             </button>
-            <button className={`tab ${step === "answers" ? "active" : ""}`} type="button">
+            <button
+              className={`tab ${step === "answers" ? "active" : ""}`}
+              type="button"
+              onClick={() => setStep("answers")}
+            >
               Perguntas
             </button>
-            <button className={`tab ${step === "result" ? "active" : ""}`} type="button">
+            <button
+              className={`tab ${step === "result" ? "active" : ""}`}
+              type="button"
+              onClick={() => setStep("result")}
+            >
               Avaliação
+            </button>
+            <button className={`tab ${step === "chat" ? "active" : ""}`} type="button" onClick={() => setStep("chat")}>
+              Chat
             </button>
           </div>
 
@@ -380,6 +448,57 @@ export default function Home() {
                   </button>
                   <button className="button secondary" type="button" onClick={resetAll}>
                     Novo teste
+                  </button>
+                </div>
+              </>
+            )}
+
+            {step === "chat" && (
+              <>
+                {workText.trim().length >= 300 ? (
+                  <section className="chat-panel">
+                    <div className="chat-log" aria-live="polite">
+                      {chatMessages.length === 0 ? (
+                        <div className="empty-state">
+                          Pergunte algo sobre o trabalho. O tutor ajuda a entender sem entregar resposta pronta.
+                        </div>
+                      ) : (
+                        chatMessages.map((message, index) => (
+                          <div className={`chat-message ${message.role}`} key={`${message.role}-${index}`}>
+                            <strong>{message.role === "user" ? "Você" : "Tutor RealLearn"}</strong>
+                            <p>{message.content}</p>
+                          </div>
+                        ))
+                      )}
+                      {isChatLoading && (
+                        <div className="chat-message assistant">
+                          <strong>Tutor RealLearn</strong>
+                          <p>Preparando uma explicação...</p>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="chat-composer">
+                      <textarea
+                        value={chatInput}
+                        onChange={(event) => setChatInput(event.target.value)}
+                        placeholder="Digite sua dúvida sobre o texto ou PDF..."
+                        disabled={isChatLoading}
+                      />
+                      <button className="button" type="button" onClick={sendChatMessage} disabled={isChatLoading}>
+                        {isChatLoading ? "Enviando..." : "Enviar dúvida"}
+                      </button>
+                    </div>
+                  </section>
+                ) : (
+                  <div className="empty-state">
+                    Cole um texto ou envie um PDF na aba Trabalho para liberar o chat.
+                  </div>
+                )}
+
+                <div className="actions">
+                  <button className="button secondary" type="button" onClick={() => setStep("text")}>
+                    Voltar ao trabalho
                   </button>
                 </div>
               </>

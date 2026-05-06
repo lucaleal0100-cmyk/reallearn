@@ -6,6 +6,7 @@ RealLearn é uma ferramenta escolar com IA para verificar se o aluno realmente e
 
 - Permite colar texto manualmente ou enviar um PDF com texto selecionável.
 - Gera 5 perguntas específicas sobre o trabalho enviado.
+- Inclui um chat tutor para tirar dúvidas sobre o texto ou PDF.
 - Evita respostas prontas, gabaritos e pistas óbvias.
 - Avalia as respostas do aluno em 3 níveis:
   - entendeu bem
@@ -22,6 +23,7 @@ RealLearn é uma ferramenta escolar com IA para verificar se o aluno realmente e
 - CSS simples
 - unpdf para extrair texto de PDFs sem CDN externa
 - API Gemini do Google via rota backend em `/api/knowledge-test`
+- Chat tutor via rota backend em `/api/tutor-chat`
 
 ## Como instalar
 
@@ -78,6 +80,13 @@ http://localhost:3000
 4. O texto extraído será colocado automaticamente no campo `Texto do trabalho`.
 5. Revise o texto e clique em `Testar meu conhecimento`.
 
+## Como testar o chat
+
+1. Cole um texto ou envie um PDF.
+2. Abra a aba `Chat`.
+3. Digite uma dúvida sobre o conteúdo.
+4. O tutor responde usando o texto enviado como contexto, sem entregar gabarito pronto.
+
 Observações:
 
 - PDFs escaneados como imagem podem não ter texto extraível.
@@ -100,6 +109,8 @@ reallearn/
       extractPdfText.ts
     api/
       knowledge-test/
+        route.ts
+      tutor-chat/
         route.ts
     globals.css
     layout.tsx

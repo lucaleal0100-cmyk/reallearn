@@ -159,7 +159,7 @@ textarea:disabled {
 
 .tabs {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   border-bottom: 1px solid var(--line);
   background: #f8fafd;
 }
@@ -445,6 +445,65 @@ textarea:focus {
   line-height: 1.55;
 }
 
+.chat-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.chat-log {
+  display: grid;
+  gap: 12px;
+  max-height: 430px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px;
+  background: #fbfcff;
+}
+
+.chat-message {
+  width: min(92%, 640px);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px 14px;
+  background: white;
+}
+
+.chat-message.user {
+  justify-self: end;
+  border-color: rgba(18, 107, 91, 0.25);
+  background: rgba(18, 107, 91, 0.08);
+}
+
+.chat-message.assistant {
+  justify-self: start;
+}
+
+.chat-message strong {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--primary-dark);
+  font-size: 0.9rem;
+}
+
+.chat-message p {
+  margin: 0;
+  color: var(--text);
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+.chat-composer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.chat-composer textarea {
+  min-height: 92px;
+}
+
 .input-tabs {
   margin-bottom: 20px;
 }
@@ -575,7 +634,8 @@ textarea:focus {
 
   .signal-grid,
   .source-switch,
-  .tabs {
+  .tabs,
+  .chat-composer {
     grid-template-columns: 1fr;
   }
 
