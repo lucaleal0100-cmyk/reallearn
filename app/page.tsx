@@ -1,6 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
+
+// Importação dinâmica do pdfjs para evitar erros de SSR
+let pdfjsLib: any = null;
 
 type Question = {
   id: string;
@@ -40,6 +43,16 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
+  // Inicializar PDF.js no cliente
+  useEffect(() => {
+    const initPdfJS = async () => {
+      const pdfjs = await import("pdfjs-dist");
+      pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
+      pdfjsLib = pdfjs;
+    };
+    initPdfJS();
+  }, []);
+
   const filledAnswers = useMemo(() => {
     return questions.filter((question) => answers[question.id]?.trim()).length;
   }, [answers, questions]);
@@ -60,32 +73,62 @@ export default function Home() {
       return;
     }
 
+    if (!pdfjsLib) {
+      setError("O processador de PDF ainda está carregando. Tente novamente em instantes.");
+      return;
+    }
+
     setIsLoading(true);
 
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("mode", "questions");
+      // Extração de texto no CLIENTE
+      const arrayBuffer = await file.arrayBuffer();
+      const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+      const pdf = await loadingTask.promise;
+      
+      let fullText = "";
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items
+          .map((item: any) => item.str)
+          .join(" ");
+        fullText += pageText + "\n";
+      }
 
-      const response = await fetch("/api/pdf-upload", {
+      const extractedText = fullText.trim();
+
+      if (extractedText.length < 100) {
+        throw new Error("Não foi possível extrair texto suficiente do PDF. Verifique se não é uma imagem digitalizada.");
+      }
+
+      setWorkText(extractedText);
+      setUploadedFileName(file.name);
+
+      // Agora chama a API apenas para gerar as perguntas com o texto já extraído
+      const response = await fetch("/api/knowledge-test", {
         method: "POST",
-        body: formData
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          mode: "questions",
+          workText: extractedText
+        })
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error ?? "Não foi possível processar o PDF.");
+        throw new Error(data.error ?? "Não foi possível gerar as perguntas.");
       }
 
-      setWorkText(data.extractedText);
-      setUploadedFileName(file.name);
       setQuestions(data.questions);
       setAnswers({});
       setEvaluation(null);
       setStep("answers");
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : "Erro inesperado.");
+      setError(requestError instanceof Error ? requestError.message : "Erro inesperado ao ler o PDF.");
     } finally {
       setIsLoading(false);
     }
@@ -294,7 +337,7 @@ export default function Home() {
                         <div className="file-upload-content">
                           <div className="file-icon">📄</div>
                           <p className="file-upload-text">
-                            Clique para selecionar um PDF ou arraste um arquivo aqui
+                            {isLoading ? "Processando PDF..." : "Clique para selecionar um PDF ou arraste um arquivo aqui"}
                           </p>
                           <p className="file-upload-hint">Máximo 10MB</p>
                         </div>
