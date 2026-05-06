@@ -21,6 +21,7 @@ type Evaluation = {
 };
 
 type Step = "text" | "answers" | "result";
+type InputMethod = "text" | "pdf";
 
 const levelClass: Record<Evaluation["level"], string> = {
   "entendeu bem": "good",
@@ -30,7 +31,9 @@ const levelClass: Record<Evaluation["level"], string> = {
 
 export default function Home() {
   const [step, setStep] = useState<Step>("text");
+  const [inputMethod, setInputMethod] = useState<InputMethod>("text");
   const [workText, setWorkText] = useState("");
+  const [uploadedFileName, setUploadedFileName] = useState("");
   const [questions, setQuestions] = useState<Question[]>([]);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [evaluation, setEvaluation] = useState<Evaluation | null>(null);
@@ -40,6 +43,53 @@ export default function Home() {
   const filledAnswers = useMemo(() => {
     return questions.filter((question) => answers[question.id]?.trim()).length;
   }, [answers, questions]);
+
+  async function handleFileUpload(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setError("");
+
+    if (file.type !== "application/pdf") {
+      setError("Por favor, selecione um arquivo PDF.");
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      setError("O arquivo é muito grande. Máximo 10MB.");
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("mode", "questions");
+
+      const response = await fetch("/api/pdf-upload", {
+        method: "POST",
+        body: formData
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error ?? "Não foi possível processar o PDF.");
+      }
+
+      setWorkText(data.extractedText);
+      setUploadedFileName(file.name);
+      setQuestions(data.questions);
+      setAnswers({});
+      setEvaluation(null);
+      setStep("answers");
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Erro inesperado.");
+    } finally {
+      setIsLoading(false);
+    }
+  }
 
   async function requestQuestions() {
     setError("");
@@ -125,7 +175,9 @@ export default function Home() {
 
   function resetAll() {
     setStep("text");
+    setInputMethod("text");
     setWorkText("");
+    setUploadedFileName("");
     setQuestions([]);
     setAnswers({});
     setEvaluation(null);
@@ -146,7 +198,7 @@ export default function Home() {
         <div className="intro">
           <h1>Descubra se o conteúdo ficou mesmo na cabeça.</h1>
           <p>
-            Cole o trabalho escolar, receba perguntas personalizadas e responda com suas
+            Cole o trabalho escolar ou envie um PDF, receba perguntas personalizadas e responda com suas
             próprias palavras. A avaliação mostra o nível de entendimento sem entregar
             respostas prontas.
           </p>
@@ -154,7 +206,7 @@ export default function Home() {
           <div className="signal-grid" aria-label="Resumo do processo">
             <div className="signal">
               <strong>01</strong>
-              <span>Texto do trabalho</span>
+              <span>Texto ou PDF</span>
             </div>
             <div className="signal">
               <strong>05</strong>
@@ -183,28 +235,83 @@ export default function Home() {
           <div className="panel">
             {step === "text" && (
               <>
-                <label className="field-label" htmlFor="work-text">
-                  Texto do trabalho
-                  <span className="counter">{workText.trim().length} caracteres</span>
-                </label>
-                <textarea
-                  id="work-text"
-                  value={workText}
-                  onChange={(event) => setWorkText(event.target.value)}
-                  placeholder="Cole aqui o texto completo do trabalho escolar..."
-                  disabled={isLoading}
-                />
+                <div className="input-tabs">
+                  <div className="input-tab-buttons">
+                    <button 
+                      className={`input-tab-button ${inputMethod === "text" ? "active" : ""}`} 
+                      type="button"
+                      onClick={() => setInputMethod("text")}
+                    >
+                      Colar texto
+                    </button>
+                    <button 
+                      className={`input-tab-button ${inputMethod === "pdf" ? "active" : ""}`} 
+                      type="button"
+                      onClick={() => setInputMethod("pdf")}
+                    >
+                      Enviar PDF
+                    </button>
+                  </div>
+                </div>
 
-                <div className="actions">
-                  <button className="button" type="button" onClick={requestQuestions} disabled={isLoading}>
-                    {isLoading ? "Gerando perguntas..." : "Testar meu conhecimento"}
-                  </button>
+                <div className="input-methods">
+                  {inputMethod === "text" && (
+                    <div className="input-method active">
+                      <label className="field-label" htmlFor="work-text">
+                        Texto do trabalho
+                        <span className="counter">{workText.trim().length} caracteres</span>
+                      </label>
+                      <textarea
+                        id="work-text"
+                        value={workText}
+                        onChange={(event) => setWorkText(event.target.value)}
+                        placeholder="Cole aqui o texto completo do trabalho escolar..."
+                        disabled={isLoading}
+                      />
+
+                      <div className="actions">
+                        <button className="button" type="button" onClick={requestQuestions} disabled={isLoading}>
+                          {isLoading ? "Gerando perguntas..." : "Testar meu conhecimento"}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {inputMethod === "pdf" && (
+                    <div className="input-method active">
+                      <label className="field-label" htmlFor="pdf-file">
+                        Enviar arquivo PDF
+                      </label>
+                      <div className="file-upload-area">
+                        <input
+                          id="pdf-file"
+                          type="file"
+                          accept=".pdf"
+                          onChange={handleFileUpload}
+                          disabled={isLoading}
+                          className="file-input"
+                        />
+                        <div className="file-upload-content">
+                          <div className="file-icon">📄</div>
+                          <p className="file-upload-text">
+                            Clique para selecionar um PDF ou arraste um arquivo aqui
+                          </p>
+                          <p className="file-upload-hint">Máximo 10MB</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </>
             )}
 
             {step === "answers" && (
               <>
+                {uploadedFileName && (
+                  <div className="file-info">
+                    <span className="file-badge">📄 {uploadedFileName}</span>
+                  </div>
+                )}
                 {questions.length > 0 ? (
                   <div className="question-list">
                     {questions.map((question, index) => (
