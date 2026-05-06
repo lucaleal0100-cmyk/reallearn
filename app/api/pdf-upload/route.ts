@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
-import * as pdfjs from "pdfjs-dist/legacy/build/pdf.mjs";
+import * as pdfjs from "pdfjs-dist/build/pdf.mjs";
+
+// Configuração necessária para o pdfjs-dist rodar no ambiente Node/Vercel
+if (typeof window === "undefined" && !pdfjs.GlobalWorkerOptions.workerSrc) {
+  pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
+}
 
 type Question = {
   id: string;
@@ -44,7 +49,7 @@ export async function POST(request: Request) {
 
     console.log(`Arquivo recebido: ${file.name}, tamanho: ${file.size} bytes`);
 
-    // Converter o arquivo para Buffer/Uint8Array
+    // Converter o arquivo para Uint8Array
     const arrayBuffer = await file.arrayBuffer();
     const uint8Array = new Uint8Array(arrayBuffer);
 
@@ -56,8 +61,10 @@ export async function POST(request: Request) {
         useSystemFonts: true,
         disableFontFace: true,
       });
+      
       const pdf = await loadingTask.promise;
       const numPages = pdf.numPages;
+      console.log(`PDF carregado: ${numPages} páginas.`);
       
       let fullText = "";
       for (let i = 1; i <= numPages; i++) {
@@ -70,43 +77,39 @@ export async function POST(request: Request) {
       }
       
       extractedText = fullText.trim();
-      console.log("PDF processado com sucesso usando pdfjs-dist.");
+      console.log("Extração de texto concluída.");
     } catch (pdfError) {
-      console.error("Erro ao parsear PDF com pdfjs-dist:", pdfError);
+      console.error("Erro detalhado ao parsear PDF:", pdfError);
       return NextResponse.json(
-        { error: "Não foi possível ler o PDF. Verifique se o arquivo está corrompido ou protegido por senha." },
+        { error: "Não foi possível ler o PDF. Verifique se o arquivo não é apenas uma imagem ou se está protegido." },
         { status: 400 }
       );
     }
 
-    console.log(`Texto extraído: ${extractedText.length} caracteres.`);
-
-    if (!extractedText || extractedText.length < 300) {
+    if (!extractedText || extractedText.length < 100) {
       return NextResponse.json(
-        { error: "O PDF contém menos de 300 caracteres ou está vazio. Envie um PDF com mais conteúdo ou verifique se não é uma imagem (scaneado)." },
+        { error: "O PDF parece estar vazio ou não contém texto legível. Verifique se não é uma imagem digitalizada." },
         { status: 400 }
       );
     }
 
-    if (extractedText.length > 18000) {
-      return NextResponse.json(
-        { error: "O texto extraído é muito longo. Reduza para até 18.000 caracteres." },
-        { status: 400 }
-      );
+    if (extractedText.length > 30000) {
+      extractedText = extractedText.substring(0, 30000);
+      console.log("Texto truncado para 30.000 caracteres.");
     }
 
     if (mode === "questions") {
-      console.log("Chamando Gemini para gerar perguntas...");
+      console.log("Iniciando geração de perguntas via Gemini...");
       const questions = await generateQuestionsWithGemini(apiKey, extractedText);
       console.log("Perguntas geradas com sucesso.");
       return NextResponse.json({ questions, extractedText });
     }
 
-    return NextResponse.json({ error: "Modo inválido. Use 'questions'." }, { status: 400 });
+    return NextResponse.json({ error: "Modo inválido." }, { status: 400 });
   } catch (error) {
-    console.error("Erro geral na API:", error);
+    console.error("Erro crítico na API:", error);
     return NextResponse.json(
-      { error: `Erro ao processar a solicitação: ${error instanceof Error ? error.message : "Erro desconhecido"}` },
+      { error: `Falha técnica ao processar PDF: ${error instanceof Error ? error.message : "Erro desconhecido"}` },
       { status: 500 }
     );
   }
@@ -156,7 +159,7 @@ ${workText}` }]
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`Erro na API Gemini: ${errorText}`);
+    throw new Error(`Erro Gemini: ${errorText}`);
   }
 
   const data = await response.json();
@@ -171,11 +174,11 @@ ${workText}` }]
 
   const parsed = JSON.parse(cleaned);
 
-  if (!Array.isArray(parsed.questions) || parsed.questions.length !== 5) {
-    throw new Error("A IA não retornou 5 perguntas válidas.");
+  if (!Array.isArray(parsed.questions)) {
+    throw new Error("Formato de perguntas inválido retornado pela IA.");
   }
 
-  return parsed.questions.map((item: any, index: number) => ({
+  return parsed.questions.slice(0, 5).map((item: any, index: number) => ({
     id: `q${index + 1}`,
     question: String(item.question ?? "").trim(),
     focus: String(item.focus ?? "").trim()
