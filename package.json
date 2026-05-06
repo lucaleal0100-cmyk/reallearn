@@ -10,13 +10,12 @@
   },
   "dependencies": {
     "next": "latest",
-    "pdfjs-dist": "^4.0.379",
     "react": "latest",
-    "react-dom": "latest"
+    "react-dom": "latest",
+    "unpdf": "^1.6.2"
   },
   "devDependencies": {
     "@types/node": "latest",
-    "@types/pdf-parse": "^1.1.5",
     "@types/react": "latest",
     "@types/react-dom": "latest",
     "eslint": "latest",

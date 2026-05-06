@@ -4,6 +4,7 @@ RealLearn é uma ferramenta escolar com IA para verificar se o aluno realmente e
 
 ## O que o site faz
 
+- Permite colar texto manualmente ou enviar um PDF com texto selecionável.
 - Gera 5 perguntas específicas sobre o trabalho enviado.
 - Evita respostas prontas, gabaritos e pistas óbvias.
 - Avalia as respostas do aluno em 3 níveis:
@@ -19,6 +20,7 @@ RealLearn é uma ferramenta escolar com IA para verificar se o aluno realmente e
 - Next.js com App Router
 - TypeScript
 - CSS simples
+- unpdf para extrair texto de PDFs sem CDN externa
 - API Gemini do Google via rota backend em `/api/knowledge-test`
 
 ## Como instalar
@@ -68,6 +70,20 @@ Abra no navegador:
 http://localhost:3000
 ```
 
+## Como testar o PDF
+
+1. Abra o site local.
+2. Clique em `Enviar PDF`.
+3. Selecione um arquivo `.pdf` com até 10MB.
+4. O texto extraído será colocado automaticamente no campo `Texto do trabalho`.
+5. Revise o texto e clique em `Testar meu conhecimento`.
+
+Observações:
+
+- PDFs escaneados como imagem podem não ter texto extraível.
+- Se a extração falhar, use um PDF com texto selecionável ou cole o conteúdo manualmente.
+- A extração do PDF acontece no navegador com `unpdf`, sem worker de CDN e sem enviar o PDF para uma rota serverless.
+
 ## Como gerar uma versão de produção
 
 ```bash
@@ -80,6 +96,8 @@ npm run start
 ```text
 reallearn/
   app/
+    lib/
+      extractPdfText.ts
     api/
       knowledge-test/
         route.ts
@@ -97,3 +115,4 @@ reallearn/
 - O arquivo `.env.local` não deve ser enviado para GitHub.
 - Se quiser usar outro modelo Gemini, altere `GEMINI_MODEL` no `.env.local`.
 - O texto do trabalho precisa ter pelo menos 300 caracteres para gerar perguntas melhores.
+- Para publicar na Vercel, configure `GEMINI_API_KEY` nas variáveis de ambiente do projeto e faça o deploy normalmente.

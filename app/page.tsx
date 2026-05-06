@@ -1,9 +1,7 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
-
-// Importação dinâmica do pdfjs para evitar erros de SSR
-let pdfjsLib: any = null;
+import { useMemo, useState } from "react";
+import { extractPdfText } from "./lib/extractPdfText";
 
 type Question = {
   id: string;
@@ -24,7 +22,9 @@ type Evaluation = {
 };
 
 type Step = "text" | "answers" | "result";
-type InputMethod = "text" | "pdf";
+type InputMode = "paste" | "pdf";
+
+const MAX_PDF_SIZE = 10 * 1024 * 1024;
 
 const levelClass: Record<Evaluation["level"], string> = {
   "entendeu bem": "good",
@@ -34,105 +34,20 @@ const levelClass: Record<Evaluation["level"], string> = {
 
 export default function Home() {
   const [step, setStep] = useState<Step>("text");
-  const [inputMethod, setInputMethod] = useState<InputMethod>("text");
   const [workText, setWorkText] = useState("");
-  const [uploadedFileName, setUploadedFileName] = useState("");
   const [questions, setQuestions] = useState<Question[]>([]);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [evaluation, setEvaluation] = useState<Evaluation | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isPdfLoading, setIsPdfLoading] = useState(false);
   const [error, setError] = useState("");
-
-  // Inicializar PDF.js no cliente
-  useEffect(() => {
-    const initPdfJS = async () => {
-      const pdfjs = await import("pdfjs-dist");
-      pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
-      pdfjsLib = pdfjs;
-    };
-    initPdfJS();
-  }, []);
+  const [inputMode, setInputMode] = useState<InputMode>("paste");
+  const [pdfFileName, setPdfFileName] = useState("");
+  const [pdfInfo, setPdfInfo] = useState("");
 
   const filledAnswers = useMemo(() => {
     return questions.filter((question) => answers[question.id]?.trim()).length;
   }, [answers, questions]);
-
-  async function handleFileUpload(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    setError("");
-
-    if (file.type !== "application/pdf") {
-      setError("Por favor, selecione um arquivo PDF.");
-      return;
-    }
-
-    if (file.size > 10 * 1024 * 1024) {
-      setError("O arquivo é muito grande. Máximo 10MB.");
-      return;
-    }
-
-    if (!pdfjsLib) {
-      setError("O processador de PDF ainda está carregando. Tente novamente em instantes.");
-      return;
-    }
-
-    setIsLoading(true);
-
-    try {
-      // Extração de texto no CLIENTE
-      const arrayBuffer = await file.arrayBuffer();
-      const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
-      const pdf = await loadingTask.promise;
-      
-      let fullText = "";
-      for (let i = 1; i <= pdf.numPages; i++) {
-        const page = await pdf.getPage(i);
-        const textContent = await page.getTextContent();
-        const pageText = textContent.items
-          .map((item: any) => item.str)
-          .join(" ");
-        fullText += pageText + "\n";
-      }
-
-      const extractedText = fullText.trim();
-
-      if (extractedText.length < 100) {
-        throw new Error("Não foi possível extrair texto suficiente do PDF. Verifique se não é uma imagem digitalizada.");
-      }
-
-      setWorkText(extractedText);
-      setUploadedFileName(file.name);
-
-      // Agora chama a API apenas para gerar as perguntas com o texto já extraído
-      const response = await fetch("/api/knowledge-test", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          mode: "questions",
-          workText: extractedText
-        })
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error ?? "Não foi possível gerar as perguntas.");
-      }
-
-      setQuestions(data.questions);
-      setAnswers({});
-      setEvaluation(null);
-      setStep("answers");
-    } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : "Erro inesperado ao ler o PDF.");
-    } finally {
-      setIsLoading(false);
-    }
-  }
 
   async function requestQuestions() {
     setError("");
@@ -170,6 +85,49 @@ export default function Home() {
       setError(requestError instanceof Error ? requestError.message : "Erro inesperado.");
     } finally {
       setIsLoading(false);
+    }
+  }
+
+  async function handlePdfUpload(file: File | undefined) {
+    setError("");
+    setPdfInfo("");
+
+    if (!file) {
+      return;
+    }
+
+    const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+
+    if (!isPdf) {
+      setError("Selecione um arquivo PDF válido.");
+      return;
+    }
+
+    if (file.size > MAX_PDF_SIZE) {
+      setError("O PDF é muito grande. O limite é de 10MB.");
+      return;
+    }
+
+    setIsPdfLoading(true);
+    setPdfFileName(file.name);
+
+    try {
+      const extracted = await extractPdfText(file);
+      setWorkText(extracted.text);
+      setQuestions([]);
+      setAnswers({});
+      setEvaluation(null);
+      setPdfInfo(
+        `Texto extraído de ${extracted.totalPages} ${
+          extracted.totalPages === 1 ? "página" : "páginas"
+        }. Revise o campo abaixo e teste seu conhecimento.`
+      );
+    } catch (pdfError) {
+      setWorkText("");
+      setPdfFileName("");
+      setError(pdfError instanceof Error ? pdfError.message : "Não foi possível ler o PDF.");
+    } finally {
+      setIsPdfLoading(false);
     }
   }
 
@@ -218,12 +176,12 @@ export default function Home() {
 
   function resetAll() {
     setStep("text");
-    setInputMethod("text");
     setWorkText("");
-    setUploadedFileName("");
     setQuestions([]);
     setAnswers({});
     setEvaluation(null);
+    setPdfFileName("");
+    setPdfInfo("");
     setError("");
   }
 
@@ -278,83 +236,74 @@ export default function Home() {
           <div className="panel">
             {step === "text" && (
               <>
-                <div className="input-tabs">
-                  <div className="input-tab-buttons">
-                    <button 
-                      className={`input-tab-button ${inputMethod === "text" ? "active" : ""}`} 
-                      type="button"
-                      onClick={() => setInputMethod("text")}
-                    >
-                      Colar texto
-                    </button>
-                    <button 
-                      className={`input-tab-button ${inputMethod === "pdf" ? "active" : ""}`} 
-                      type="button"
-                      onClick={() => setInputMethod("pdf")}
-                    >
-                      Enviar PDF
-                    </button>
-                  </div>
+                <div className="source-switch" aria-label="Escolha como enviar o trabalho">
+                  <button
+                    className={`source-option ${inputMode === "paste" ? "active" : ""}`}
+                    type="button"
+                    onClick={() => setInputMode("paste")}
+                    disabled={isLoading || isPdfLoading}
+                  >
+                    Colar texto
+                  </button>
+                  <button
+                    className={`source-option ${inputMode === "pdf" ? "active" : ""}`}
+                    type="button"
+                    onClick={() => setInputMode("pdf")}
+                    disabled={isLoading || isPdfLoading}
+                  >
+                    Enviar PDF
+                  </button>
                 </div>
 
-                <div className="input-methods">
-                  {inputMethod === "text" && (
-                    <div className="input-method active">
-                      <label className="field-label" htmlFor="work-text">
-                        Texto do trabalho
-                        <span className="counter">{workText.trim().length} caracteres</span>
-                      </label>
-                      <textarea
-                        id="work-text"
-                        value={workText}
-                        onChange={(event) => setWorkText(event.target.value)}
-                        placeholder="Cole aqui o texto completo do trabalho escolar..."
-                        disabled={isLoading}
-                      />
-
-                      <div className="actions">
-                        <button className="button" type="button" onClick={requestQuestions} disabled={isLoading}>
-                          {isLoading ? "Gerando perguntas..." : "Testar meu conhecimento"}
-                        </button>
+                {inputMode === "pdf" && (
+                  <div className="pdf-upload">
+                    <input
+                      id="pdf-file"
+                      type="file"
+                      accept="application/pdf,.pdf"
+                      onChange={(event) => handlePdfUpload(event.target.files?.[0])}
+                      disabled={isLoading || isPdfLoading}
+                    />
+                    <label className="pdf-drop" htmlFor="pdf-file">
+                      <strong>{isPdfLoading ? "Lendo PDF..." : "Selecionar PDF"}</strong>
+                      <span>Use um arquivo com texto selecionável, até 10MB.</span>
+                    </label>
+                    {pdfFileName && (
+                      <div className="file-status">
+                        <strong>{pdfFileName}</strong>
+                        {pdfInfo && <span>{pdfInfo}</span>}
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
+                )}
 
-                  {inputMethod === "pdf" && (
-                    <div className="input-method active">
-                      <label className="field-label" htmlFor="pdf-file">
-                        Enviar arquivo PDF
-                      </label>
-                      <div className="file-upload-area">
-                        <input
-                          id="pdf-file"
-                          type="file"
-                          accept=".pdf"
-                          onChange={handleFileUpload}
-                          disabled={isLoading}
-                          className="file-input"
-                        />
-                        <div className="file-upload-content">
-                          <div className="file-icon">📄</div>
-                          <p className="file-upload-text">
-                            {isLoading ? "Processando PDF..." : "Clique para selecionar um PDF ou arraste um arquivo aqui"}
-                          </p>
-                          <p className="file-upload-hint">Máximo 10MB</p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
+                <label className="field-label" htmlFor="work-text">
+                  Texto do trabalho
+                  <span className="counter">{workText.trim().length} caracteres</span>
+                </label>
+                <textarea
+                  id="work-text"
+                  value={workText}
+                  onChange={(event) => setWorkText(event.target.value)}
+                  placeholder="Cole aqui o texto completo do trabalho escolar..."
+                  disabled={isLoading || isPdfLoading}
+                />
+
+                <div className="actions">
+                  <button
+                    className="button"
+                    type="button"
+                    onClick={requestQuestions}
+                    disabled={isLoading || isPdfLoading}
+                  >
+                    {isLoading ? "Gerando perguntas..." : "Testar meu conhecimento"}
+                  </button>
                 </div>
               </>
             )}
 
             {step === "answers" && (
               <>
-                {uploadedFileName && (
-                  <div className="file-info">
-                    <span className="file-badge">📄 {uploadedFileName}</span>
-                  </div>
-                )}
                 {questions.length > 0 ? (
                   <div className="question-list">
                     {questions.map((question, index) => (

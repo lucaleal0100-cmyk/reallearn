@@ -36,6 +36,7 @@ body {
 }
 
 button,
+input,
 textarea {
   font: inherit;
 }
@@ -45,6 +46,7 @@ button {
 }
 
 button:disabled,
+input:disabled,
 textarea:disabled {
   cursor: not-allowed;
   opacity: 0.65;
@@ -198,6 +200,78 @@ textarea:disabled {
   color: var(--muted);
   font-size: 0.85rem;
   font-weight: 700;
+}
+
+.source-switch {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.source-option {
+  min-height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f8fafd;
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.source-option.active {
+  border-color: rgba(18, 107, 91, 0.42);
+  background: rgba(18, 107, 91, 0.1);
+  color: var(--primary-dark);
+}
+
+.pdf-upload {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.pdf-upload input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  clip-path: inset(50%);
+}
+
+.pdf-drop {
+  display: grid;
+  gap: 4px;
+  min-height: 86px;
+  place-items: center;
+  border: 1px dashed rgba(18, 107, 91, 0.38);
+  border-radius: 8px;
+  padding: 16px;
+  background: rgba(18, 107, 91, 0.06);
+  color: var(--primary-dark);
+  text-align: center;
+  cursor: pointer;
+}
+
+.pdf-drop span {
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.file-status {
+  display: grid;
+  gap: 4px;
+  border: 1px solid rgba(31, 122, 85, 0.22);
+  border-radius: 8px;
+  padding: 12px 14px;
+  background: rgba(31, 122, 85, 0.08);
+  color: var(--primary-dark);
+}
+
+.file-status span {
+  color: var(--muted);
+  line-height: 1.45;
 }
 
 textarea {
@@ -500,6 +574,7 @@ textarea:focus {
   }
 
   .signal-grid,
+  .source-switch,
   .tabs {
     grid-template-columns: 1fr;
   }
