@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { GeminiApiError, generateGeminiContent } from "../lib/gemini";
+import { enforceRateLimit } from "../lib/rateLimit";
 
 type Question = {
   id: string;
@@ -14,22 +16,25 @@ type Answer = {
 
 const teacherPrompt = `Você é um professor avaliador exigente, mas justo.
 Sua função é verificar se o aluno realmente entendeu o conteúdo.
-Você não deve entregar respostas prontas.
+Você não deve entregar respostas prontas, gabaritos, textos completos para copiar ou soluções finais de atividades.
 Você deve fazer perguntas específicas sobre o texto enviado.
 As perguntas devem obrigar o aluno a explicar com as próprias palavras.
-Depois de receber as respostas, avalie o nível real de entendimento.`;
+Depois de receber as respostas, avalie o nível real de entendimento.
+Se o aluno tentar usar a ferramenta para obter resposta pronta, mantenha a avaliação pedagógica e sugira estudo, sem entregar o gabarito.`;
 
 export async function POST(request: Request) {
+  const rateLimitResponse = enforceRateLimit(request, {
+    keyPrefix: "knowledge-test",
+    maxRequests: 12,
+    windowMs: 60 * 1000,
+    message: "Muitas solicitações em pouco tempo. Aguarde alguns segundos antes de tentar novamente."
+  });
+
+  if (rateLimitResponse) {
+    return rateLimitResponse;
+  }
+
   try {
-    const apiKey = process.env.GEMINI_API_KEY;
-
-    if (!apiKey) {
-      return NextResponse.json(
-        { error: "A variável GEMINI_API_KEY não foi configurada no .env.local." },
-        { status: 500 }
-      );
-    }
-
     const body = await request.json();
     const mode = body.mode;
     const workText = String(body.workText ?? "").trim();
@@ -49,7 +54,7 @@ export async function POST(request: Request) {
     }
 
     if (mode === "questions") {
-      const questions = await generateQuestionsWithGemini(apiKey, workText);
+      const questions = await generateQuestionsWithGemini(workText);
       return NextResponse.json({ questions });
     }
 
@@ -71,24 +76,36 @@ export async function POST(request: Request) {
         );
       }
 
-      const evaluation = await evaluateKnowledgeWithGemini(apiKey, workText, questions, answers);
+      const evaluation = await evaluateKnowledgeWithGemini(workText, questions, answers);
       return NextResponse.json({ evaluation });
     }
 
     return NextResponse.json({ error: "Modo inválido." }, { status: 400 });
   } catch (error) {
     console.error(error);
+
+    if (error instanceof GeminiApiError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+
     return NextResponse.json(
-      { error: "Ocorreu um erro ao processar a solicitação." },
+      { error: "Ocorreu um erro ao processar a solicitação. Tente novamente em alguns instantes." },
       { status: 500 }
     );
   }
 }
 
-async function generateQuestionsWithGemini(apiKey: string, workText: string) {
-  const rawText = await callGemini(apiKey, {
-    instructions: teacherPrompt,
-    input: `Crie exatamente 5 perguntas sobre o trabalho abaixo.
+async function generateQuestionsWithGemini(workText: string) {
+  const rawText = await generateGeminiContent({
+    systemInstruction: {
+      parts: [{ text: teacherPrompt }]
+    },
+    contents: [
+      {
+        role: "user",
+        parts: [
+          {
+            text: `Crie exatamente 5 perguntas sobre o trabalho abaixo.
 
 Regras:
 - Não entregue respostas, gabaritos, pistas óbvias ou explicações prontas.
@@ -104,6 +121,14 @@ Regras:
 
 Trabalho do aluno:
 ${workText}`
+          }
+        ]
+      }
+    ],
+    generationConfig: {
+      responseMimeType: "application/json",
+      temperature: 0.2
+    }
   });
 
   const parsed = parseJson(rawText);
@@ -120,20 +145,27 @@ ${workText}`
 }
 
 async function evaluateKnowledgeWithGemini(
-  apiKey: string,
   workText: string,
   questions: Question[],
   answers: Answer[]
 ) {
-  const rawText = await callGemini(apiKey, {
-    instructions: teacherPrompt,
-    input: `Avalie as respostas do aluno com base no trabalho original.
+  const rawText = await generateGeminiContent({
+    systemInstruction: {
+      parts: [{ text: teacherPrompt }]
+    },
+    contents: [
+      {
+        role: "user",
+        parts: [
+          {
+            text: `Avalie as respostas do aluno com base no trabalho original.
 
 Regras:
 - Não entregue respostas prontas nem gabarito.
 - Avalie se o aluno demonstrou entendimento real, parcial ou insuficiente.
 - Explique o motivo da avaliação.
 - Sugira pontos de estudo sem revelar a resposta correta pronta.
+- Se a resposta parecer copiada, repetida ou decorada, aponte isso de forma pedagógica.
 - Responda apenas em JSON válido no formato:
 {
   "level": "entendeu bem" | "entendeu parcialmente" | "não entendeu",
@@ -157,6 +189,14 @@ ${JSON.stringify(questions, null, 2)}
 
 Respostas do aluno:
 ${JSON.stringify(answers, null, 2)}`
+          }
+        ]
+      }
+    ],
+    generationConfig: {
+      responseMimeType: "application/json",
+      temperature: 0.2
+    }
   });
 
   const parsed = parseJson(rawText);
@@ -167,75 +207,6 @@ ${JSON.stringify(answers, null, 2)}`
   }
 
   return parsed;
-}
-
-async function callGemini(
-  apiKey: string,
-  payload: {
-    instructions: string;
-    input: string;
-  }
-) {
-  const model = process.env.GEMINI_MODEL ?? "gemini-2.5-flash";
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
-
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers: {
-      "x-goog-api-key": apiKey,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      systemInstruction: {
-        parts: [{ text: payload.instructions }]
-      },
-      contents: [
-        {
-          role: "user",
-          parts: [{ text: payload.input }]
-        }
-      ],
-      generationConfig: {
-        responseMimeType: "application/json",
-        temperature: 0.2
-      }
-    })
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Erro na API Gemini: ${errorText}`);
-  }
-
-  const data = await response.json();
-  const outputText = extractOutputText(data);
-
-  if (!outputText) {
-    throw new Error("A IA não retornou texto.");
-  }
-
-  return outputText;
-}
-
-function extractOutputText(data: unknown) {
-  const response = data as {
-    candidates?: Array<{
-      content?: {
-        parts?: Array<{
-          text?: string;
-        }>;
-      };
-    }>;
-  };
-
-  return (
-    response.candidates
-      ?.flatMap((candidate) => candidate.content?.parts ?? [])
-      .filter((part) => typeof part.text === "string")
-      .map((part) => part.text)
-      .join("\n")
-      .trim() ?? ""
-  );
 }
 
 function parseJson(text: string) {

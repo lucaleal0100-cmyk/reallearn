@@ -127,3 +127,5 @@ reallearn/
 - Se quiser usar outro modelo Gemini, altere `GEMINI_MODEL` no `.env.local`.
 - O texto do trabalho precisa ter pelo menos 300 caracteres para gerar perguntas melhores.
 - Para publicar na Vercel, configure `GEMINI_API_KEY` nas variáveis de ambiente do projeto e faça o deploy normalmente.
+- As rotas de IA possuem limite simples por IP para reduzir abuso e proteger a chave da Gemini.
+- O tutor e a avaliação foram instruídos a não entregar gabaritos prontos nem textos para copiar.
