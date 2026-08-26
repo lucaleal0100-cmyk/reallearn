@@ -173,7 +173,7 @@ async function callGemini(
             text: `Texto do trabalho:
 ${workText.slice(0, 18000)}
 
-Perguntas geradas pelo RealLearn:
+Perguntas geradas pelo StudyAI:
 ${questions.length ? JSON.stringify(questions, null, 2) : "Nenhuma pergunta gerada ainda."}
 
 Respostas do aluno:

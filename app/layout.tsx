@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "RealLearn",
-  description: "Ferramenta escolar com IA para verificar aprendizado real."
+  title: "StudyAI",
+  description: "Ferramenta escolar com IA para estudar melhor a partir do próprio conteúdo."
 };
 
 export default function RootLayout({

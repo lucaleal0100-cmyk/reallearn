@@ -1,6 +1,6 @@
-# RealLearn
+# StudyAI
 
-RealLearn é uma ferramenta escolar com IA para verificar se o aluno realmente entendeu o conteúdo de um trabalho. O aluno cola o texto, recebe 5 perguntas personalizadas, responde com as próprias palavras e recebe uma avaliação sem gabarito pronto.
+StudyAI é uma ferramenta escolar com IA para verificar se o aluno realmente entendeu o conteúdo de um trabalho. O aluno cola o texto, recebe 5 perguntas personalizadas, responde com as próprias palavras e recebe uma avaliação sem gabarito pronto.
 
 ## O que o site faz
 

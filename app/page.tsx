@@ -265,19 +265,19 @@ export default function Home() {
     <main className="page">
       <header className="topbar">
         <div className="brand">
-          <div className="brand-mark">RL</div>
-          <span>RealLearn</span>
+          <div className="brand-mark">SA</div>
+          <span>StudyAI</span>
         </div>
-        <div className="badge">IA para aprendizado real</div>
+        <div className="badge">IA para estudar melhor</div>
       </header>
 
       <section className="hero">
         <div className="intro">
-          <h1>Descubra se o conteúdo ficou mesmo na cabeça.</h1>
+          <span className="intro-label">Estudo personalizado com IA</span>
+          <h1>Entenda melhor o que você estudou.</h1>
           <p>
-            Cole o trabalho escolar ou envie um PDF, receba perguntas personalizadas e responda com suas
-            próprias palavras. A avaliação mostra quais conteúdos precisam de mais estudo sem entregar
-            respostas prontas.
+            Envie um texto ou PDF, responda perguntas sobre o conteúdo e veja exatamente quais
+            temas precisam de mais atenção.
           </p>
 
           <div className="signal-grid" aria-label="Resumo do processo">
@@ -327,10 +327,10 @@ export default function Home() {
             {step === "home" && (
               <section className="home-panel">
                 <div className="home-copy">
-                  <span className="eyebrow">Como o RealLearn funciona</span>
+                  <span className="eyebrow">Como o StudyAI funciona</span>
                   <h2>Um teste de entendimento feito a partir do seu próprio trabalho.</h2>
                   <p>
-                    O RealLearn lê o conteúdo que você envia, cria perguntas específicas e avalia se
+                    O StudyAI lê o conteúdo que você envia, cria perguntas específicas e avalia se
                     você consegue explicar as ideias com suas próprias palavras. Depois, aponta os
                     conteúdos que precisam de aprofundamento e ajuda você a estudar melhor pelo chat.
                   </p>
@@ -359,7 +359,7 @@ export default function Home() {
                   </div>
                 </div>
 
-                <div className="example-showcase" aria-label="Exemplos do RealLearn">
+                <div className="example-showcase" aria-label="Exemplos do StudyAI">
                   <article className="example-card">
                     <div className="mock-window">
                       <div className="mock-title">Texto do trabalho</div>
@@ -411,7 +411,7 @@ export default function Home() {
                 </div>
 
                 <div className="home-note">
-                  <strong>Importante:</strong> o RealLearn não faz o trabalho pelo aluno. Ele ajuda a
+                  <strong>Importante:</strong> o StudyAI não faz o trabalho pelo aluno. Ele ajuda a
                   descobrir se o conteúdo foi realmente aprendido.
                 </div>
 
@@ -604,14 +604,14 @@ export default function Home() {
                       ) : (
                         chatMessages.map((message, index) => (
                           <div className={`chat-message ${message.role}`} key={`${message.role}-${index}`}>
-                            <strong>{message.role === "user" ? "Você" : "Tutor RealLearn"}</strong>
+                            <strong>{message.role === "user" ? "Você" : "Tutor StudyAI"}</strong>
                             <p>{message.content}</p>
                           </div>
                         ))
                       )}
                       {isChatLoading && (
                         <div className="chat-message assistant">
-                          <strong>Tutor RealLearn</strong>
+                          <strong>Tutor StudyAI</strong>
                           <p>Preparando uma explicação...</p>
                         </div>
                       )}
