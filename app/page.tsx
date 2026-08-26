@@ -13,6 +13,11 @@ type Evaluation = {
   level: "entendeu bem" | "entendeu parcialmente" | "não entendeu";
   explanation: string;
   studySuggestions: string[];
+  contentToImprove?: Array<{
+    topic: string;
+    reason: string;
+    whatToStudy: string;
+  }>;
   questionFeedback: Array<{
     id: string;
     summary: string;
@@ -21,7 +26,7 @@ type Evaluation = {
   }>;
 };
 
-type Step = "text" | "answers" | "result" | "chat";
+type Step = "home" | "text" | "answers" | "result" | "chat";
 type InputMode = "paste" | "pdf";
 type ChatMessage = {
   role: "user" | "assistant";
@@ -37,7 +42,7 @@ const levelClass: Record<Evaluation["level"], string> = {
 };
 
 export default function Home() {
-  const [step, setStep] = useState<Step>("text");
+  const [step, setStep] = useState<Step>("home");
   const [workText, setWorkText] = useState("");
   const [questions, setQuestions] = useState<Question[]>([]);
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -181,10 +186,10 @@ export default function Home() {
     }
   }
 
-  async function sendChatMessage() {
+  async function sendChatMessage(messageOverride?: string) {
     setError("");
 
-    const message = chatInput.trim();
+    const message = (messageOverride ?? chatInput).trim();
 
     if (workText.trim().length < 300) {
       setError("Adicione um texto ou PDF com pelo menos 300 caracteres antes de usar o chat.");
@@ -199,6 +204,7 @@ export default function Home() {
     const nextMessages: ChatMessage[] = [...chatMessages, { role: "user", content: message }];
     setChatMessages(nextMessages);
     setChatInput("");
+    setStep("chat");
     setIsChatLoading(true);
 
     try {
@@ -210,7 +216,14 @@ export default function Home() {
         body: JSON.stringify({
           workText,
           message,
-          history: chatMessages
+          history: chatMessages,
+          questions,
+          answers: questions.map((question) => ({
+            id: question.id,
+            question: question.question,
+            answer: answers[question.id] ?? ""
+          })),
+          evaluation
         })
       });
 
@@ -229,8 +242,14 @@ export default function Home() {
     }
   }
 
+  function requestStudyMaterial() {
+    void sendChatMessage(
+      "Com base na minha avaliação, nos conteúdos que preciso melhorar e nas minhas respostas, crie um texto de estudo personalizado sobre esses conteúdos. Depois faça perguntas novas e específicas para eu treinar, sem entregar gabarito pronto."
+    );
+  }
+
   function resetAll() {
-    setStep("text");
+    setStep("home");
     setWorkText("");
     setQuestions([]);
     setAnswers({});
@@ -257,7 +276,7 @@ export default function Home() {
           <h1>Descubra se o conteúdo ficou mesmo na cabeça.</h1>
           <p>
             Cole o trabalho escolar ou envie um PDF, receba perguntas personalizadas e responda com suas
-            próprias palavras. A avaliação mostra o nível de entendimento sem entregar
+            próprias palavras. A avaliação mostra quais conteúdos precisam de mais estudo sem entregar
             respostas prontas.
           </p>
 
@@ -279,6 +298,9 @@ export default function Home() {
 
         <div className="workspace">
           <div className="tabs" aria-label="Etapas">
+            <button className={`tab ${step === "home" ? "active" : ""}`} type="button" onClick={() => setStep("home")}>
+              Início
+            </button>
             <button className={`tab ${step === "text" ? "active" : ""}`} type="button" onClick={() => setStep("text")}>
               Trabalho
             </button>
@@ -302,6 +324,105 @@ export default function Home() {
           </div>
 
           <div className="panel">
+            {step === "home" && (
+              <section className="home-panel">
+                <div className="home-copy">
+                  <span className="eyebrow">Como o RealLearn funciona</span>
+                  <h2>Um teste de entendimento feito a partir do seu próprio trabalho.</h2>
+                  <p>
+                    O RealLearn lê o conteúdo que você envia, cria perguntas específicas e avalia se
+                    você consegue explicar as ideias com suas próprias palavras. Depois, aponta os
+                    conteúdos que precisam de aprofundamento e ajuda você a estudar melhor pelo chat.
+                  </p>
+                </div>
+
+                <div className="steps-grid" aria-label="Passos de uso">
+                  <div className="step-card">
+                    <strong>1</strong>
+                    <h3>Envie o conteúdo</h3>
+                    <p>Cole o texto do trabalho ou envie um PDF com texto selecionável.</p>
+                  </div>
+                  <div className="step-card">
+                    <strong>2</strong>
+                    <h3>Responda perguntas</h3>
+                    <p>A IA cria 5 perguntas sobre o material enviado, sem gabarito pronto.</p>
+                  </div>
+                  <div className="step-card">
+                    <strong>3</strong>
+                    <h3>Veja a avaliação</h3>
+                    <p>Receba um diagnóstico honesto e veja quais conteúdos revisar.</p>
+                  </div>
+                  <div className="step-card">
+                    <strong>4</strong>
+                    <h3>Tire dúvidas</h3>
+                    <p>Use o chat tutor para entender melhor os conteúdos em que errou.</p>
+                  </div>
+                </div>
+
+                <div className="example-showcase" aria-label="Exemplos do RealLearn">
+                  <article className="example-card">
+                    <div className="mock-window">
+                      <div className="mock-title">Texto do trabalho</div>
+                      <div className="mock-lines">
+                        <span className="wide" />
+                        <span />
+                        <span className="medium" />
+                        <span className="wide" />
+                      </div>
+                    </div>
+                    <h3>Conteúdo enviado</h3>
+                    <p>O aluno começa com o texto do trabalho ou com o conteúdo extraído do PDF.</p>
+                  </article>
+
+                  <article className="example-card">
+                    <div className="mock-window">
+                      <div className="mock-title">Perguntas geradas</div>
+                      <ol className="mock-questions">
+                        <li>Explique a ideia principal com suas palavras.</li>
+                        <li>Compare dois conceitos citados no texto.</li>
+                        <li>Mostre por que esse ponto é importante.</li>
+                      </ol>
+                    </div>
+                    <h3>Perguntas personalizadas</h3>
+                    <p>As perguntas obrigam o aluno a demonstrar entendimento real.</p>
+                  </article>
+
+                  <article className="example-card">
+                    <div className="mock-window">
+                      <div className="mock-level">entendeu parcialmente</div>
+                      <div className="mock-feedback">
+                        <span>Ponto forte: explicou a ideia central.</span>
+                        <span>Revisar: relação entre os conceitos.</span>
+                      </div>
+                    </div>
+                    <h3>Avaliação clara</h3>
+                    <p>O resultado mostra o nível de compreensão e os conteúdos para revisar.</p>
+                  </article>
+
+                  <article className="example-card">
+                    <div className="mock-window chat-preview">
+                      <div className="mock-bubble assistant">Qual parte você quer entender melhor?</div>
+                      <div className="mock-bubble user">Me explica esse trecho?</div>
+                      <div className="mock-bubble assistant">Vamos por partes, sem copiar resposta...</div>
+                    </div>
+                    <h3>Chat tutor</h3>
+                    <p>O chat usa o texto, as perguntas, as respostas e a avaliação como contexto.</p>
+                  </article>
+                </div>
+
+                <div className="home-note">
+                  <strong>Importante:</strong> o RealLearn não faz o trabalho pelo aluno. Ele ajuda a
+                  descobrir se o conteúdo foi realmente aprendido.
+                </div>
+
+                <div className="actions">
+                  <button className="button" type="button" onClick={() => setStep("text")}>
+                    Começar meu teste
+                  </button>
+                </div>
+              </section>
+            )}
+
             {step === "text" && (
               <>
                 <div className="source-switch" aria-label="Escolha como enviar o trabalho">
@@ -425,6 +546,24 @@ export default function Home() {
                       ))}
                     </ul>
 
+                    {evaluation.contentToImprove && evaluation.contentToImprove.length > 0 && (
+                      <>
+                        <h3>Conteúdos para se aprofundar</h3>
+                        <div className="topic-grid">
+                          {evaluation.contentToImprove.map((item) => (
+                            <article className="topic-item" key={item.topic}>
+                              <strong>{item.topic}</strong>
+                              <p>{item.reason}</p>
+                              <span>{item.whatToStudy}</span>
+                            </article>
+                          ))}
+                        </div>
+                        <button className="button study-button" type="button" onClick={requestStudyMaterial}>
+                          Gerar estudo no chat
+                        </button>
+                      </>
+                    )}
+
                     <h3>Análise por pergunta</h3>
                     <div className="feedback-grid">
                       {evaluation.questionFeedback.map((feedback, index) => (
@@ -485,7 +624,7 @@ export default function Home() {
                         placeholder="Digite sua dúvida sobre o texto ou PDF..."
                         disabled={isChatLoading}
                       />
-                      <button className="button" type="button" onClick={sendChatMessage} disabled={isChatLoading}>
+                      <button className="button" type="button" onClick={() => void sendChatMessage()} disabled={isChatLoading}>
                         {isChatLoading ? "Enviando..." : "Enviar dúvida"}
                       </button>
                     </div>

@@ -20,6 +20,8 @@ Você não deve entregar respostas prontas, gabaritos, textos completos para cop
 Você deve fazer perguntas específicas sobre o texto enviado.
 As perguntas devem obrigar o aluno a explicar com as próprias palavras.
 Depois de receber as respostas, avalie o nível real de entendimento.
+Identifique quais conteúdos específicos do trabalho o aluno precisa estudar melhor.
+Não classifique a dificuldade como interpretação, escrita, atenção ou outra habilidade genérica; cite os temas e conceitos do próprio conteúdo enviado.
 Se o aluno tentar usar a ferramenta para obter resposta pronta, mantenha a avaliação pedagógica e sugira estudo, sem entregar o gabarito.`;
 
 export async function POST(request: Request) {
@@ -164,13 +166,22 @@ Regras:
 - Não entregue respostas prontas nem gabarito.
 - Avalie se o aluno demonstrou entendimento real, parcial ou insuficiente.
 - Explique o motivo da avaliação.
-- Sugira pontos de estudo sem revelar a resposta correta pronta.
+- Identifique apenas conteúdos, temas, conceitos ou partes do trabalho que o aluno precisa estudar melhor.
+- Não diga que a dificuldade foi "interpretação", "falta de atenção", "explicar com clareza" ou outra habilidade genérica.
+- Sugira pontos de estudo ligados ao conteúdo do trabalho sem revelar a resposta correta pronta.
 - Se a resposta parecer copiada, repetida ou decorada, aponte isso de forma pedagógica.
 - Responda apenas em JSON válido no formato:
 {
   "level": "entendeu bem" | "entendeu parcialmente" | "não entendeu",
   "explanation": "motivo geral da avaliação",
   "studySuggestions": ["ponto para revisar"],
+  "contentToImprove": [
+    {
+      "topic": "conteúdo específico do trabalho",
+      "reason": "por que esse conteúdo precisa ser aprofundado, usando evidências das respostas",
+      "whatToStudy": "o que revisar nesse conteúdo, sem dar gabarito"
+    }
+  ],
   "questionFeedback": [
     {
       "id": "q1",

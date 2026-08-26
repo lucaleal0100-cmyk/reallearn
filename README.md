@@ -14,6 +14,8 @@ RealLearn é uma ferramenta escolar com IA para verificar se o aluno realmente e
   - não entendeu
 - Explica o motivo da avaliação.
 - Sugere o que estudar melhor.
+- Identifica os conteúdos do trabalho que precisam de mais estudo.
+- Permite gerar no chat um texto de estudo e novas perguntas sobre os conteúdos a melhorar.
 - Mantém a chave da Gemini API apenas no backend.
 
 ## Tecnologias
