@@ -42,7 +42,7 @@ export async function POST(request: Request) {
 
     if (!apiKey) {
       return NextResponse.json(
-        { error: "Configure YOUTUBE_API_KEY no .env.local para buscar vídeos reais." },
+        { error: "Configure YOUTUBE_API_KEY nas variáveis do ambiente para buscar vídeos reais." },
         { status: 500 }
       );
     }

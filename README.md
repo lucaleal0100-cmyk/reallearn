@@ -10,7 +10,7 @@ StudyAI é uma ferramenta escolar com IA para verificar se o aluno realmente ent
 - Avalia as respostas em 3 níveis: `entendeu bem`, `entendeu parcialmente` ou `não entendeu`.
 - Explica o motivo da avaliação e indica os conteúdos do trabalho que precisam de revisão.
 - Inclui chat tutor com acesso ao texto, perguntas, respostas e avaliação.
-- Oferece modos de estudo: vídeo, infográfico, texto e estudo interativo.
+- Oferece modos de estudo: vídeos e infográfico visual.
 - Permite baixar o infográfico em PDF.
 - Usa Gemini API no backend, sem expor a chave no frontend.
 

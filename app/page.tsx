@@ -40,10 +40,39 @@ type LearningProfile = {
   notes: string;
 };
 
-type StudyMode = "video" | "infographic" | "text" | "interactive";
+type StudyMode = "video" | "infographic";
+
+type InfographicResult = {
+  title: string;
+  centralIdea: string;
+  visualMetaphor: string;
+  sections: Array<{
+    title: string;
+    summary: string;
+    icon: string;
+    importance: number;
+  }>;
+  connections: Array<{
+    from: string;
+    to: string;
+    label: string;
+  }>;
+  timeline: Array<{
+    label: string;
+    detail: string;
+  }>;
+  comparison: Array<{
+    left: string;
+    right: string;
+    note: string;
+  }>;
+  quickSummary: string[];
+  reviewQuestions: string[];
+};
+
 type StudyResult = {
-  mode: StudyMode;
-  content: string;
+  mode: "infographic";
+  content: InfographicResult;
 };
 
 type VideoResult = {
@@ -100,7 +129,7 @@ export default function Home() {
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [profile, setProfile] = useState<LearningProfile>(defaultProfile);
   const [hasProfile, setHasProfile] = useState(false);
-  const [studyMode, setStudyMode] = useState<StudyMode>("text");
+  const [studyMode, setStudyMode] = useState<StudyMode>("infographic");
   const [studyResult, setStudyResult] = useState<StudyResult | null>(null);
   const [videos, setVideos] = useState<VideoResult[]>([]);
   const [videoQuery, setVideoQuery] = useState("");
@@ -375,7 +404,7 @@ export default function Home() {
         throw new Error(data.error ?? "Não foi possível gerar o estudo.");
       }
 
-      setStudyResult({ mode: selectedMode, content: data.result });
+      setStudyResult({ mode: "infographic", content: normalizeInfographic(data.result) });
       setVideos([]);
       setVideoQuery("");
     } catch (studyError) {
@@ -401,7 +430,7 @@ export default function Home() {
         },
         body: JSON.stringify({
           title: "Infográfico StudyAI",
-          content: studyResult.content
+          content: infographicToPdfText(studyResult.content)
         })
       });
 
@@ -963,8 +992,8 @@ export default function Home() {
                   <span className="eyebrow">Modos de estudo</span>
                   <h2>Escolha como quer estudar este conteúdo.</h2>
                   <p>
-                    O StudyAI usa seu perfil, o texto enviado e sua avaliação para adaptar a explicação. Você pode
-                    trocar de modo quando quiser.
+                    O StudyAI usa seu perfil, o texto enviado e sua avaliação para sugerir vídeos ou montar um
+                    infográfico visual do conteúdo.
                   </p>
                 </div>
 
@@ -979,8 +1008,8 @@ export default function Home() {
                   <div>
                     <strong>Como usar</strong>
                     <p>
-                      Escolha um modo abaixo para gerar um material adaptado ao seu texto, às suas respostas e ao seu
-                      perfil. Você pode trocar de modo a qualquer momento.
+                      Escolha uma opção abaixo para estudar o conteúdo de forma mais objetiva. O chat continua separado
+                      para dúvidas livres.
                     </p>
                   </div>
                   <button
@@ -989,7 +1018,7 @@ export default function Home() {
                     onClick={() => void generateStudyMode(studyMode)}
                     disabled={isStudyLoading || workText.trim().length < 300}
                   >
-                    {isStudyLoading ? "Gerando..." : "Gerar modo selecionado"}
+                    {isStudyLoading ? "Gerando..." : "Gerar opção selecionada"}
                   </button>
                 </div>
 
@@ -1010,25 +1039,7 @@ export default function Home() {
                     disabled={isStudyLoading}
                   >
                     <strong>Infográfico</strong>
-                    <span>Organiza o conteúdo em blocos visuais e resumo.</span>
-                  </button>
-                  <button
-                    className={`mode-card ${studyMode === "text" ? "active" : ""}`}
-                    type="button"
-                    onClick={() => void generateStudyMode("text")}
-                    disabled={isStudyLoading}
-                  >
-                    <strong>Texto</strong>
-                    <span>Explicação personalizada no ritmo do aluno.</span>
-                  </button>
-                  <button
-                    className={`mode-card ${studyMode === "interactive" ? "active" : ""}`}
-                    type="button"
-                    onClick={() => void generateStudyMode("interactive")}
-                    disabled={isStudyLoading}
-                  >
-                    <strong>Estudo Interativo</strong>
-                    <span>Etapas, desafios e perguntas para raciocinar.</span>
+                    <span>Cria blocos visuais, relações, comparação e perguntas rápidas.</span>
                   </button>
                 </div>
 
@@ -1068,20 +1079,18 @@ export default function Home() {
                       </>
                     )}
 
-                    {!isStudyLoading && studyResult && studyMode !== "video" && (
+                    {!isStudyLoading && studyResult && studyMode === "infographic" && (
                       <article className="generated-study">
-                        <pre>{studyResult.content}</pre>
-                        {studyResult.mode === "infographic" && (
-                          <button className="button" type="button" onClick={() => void downloadInfographicPdf()}>
-                            Baixar PDF
-                          </button>
-                        )}
+                        <InfographicView infographic={studyResult.content} />
+                        <button className="button" type="button" onClick={() => void downloadInfographicPdf()}>
+                          Baixar PDF
+                        </button>
                       </article>
                     )}
 
-                    {!isStudyLoading && !studyResult && studyMode !== "video" && (
+                    {!isStudyLoading && !studyResult && studyMode === "infographic" && (
                       <div className="empty-state">
-                        Clique em um modo acima ou em Gerar modo selecionado para criar seu estudo personalizado.
+                        Clique em Infográfico ou em Gerar opção selecionada para criar um material visual.
                       </div>
                     )}
                   </div>
@@ -1155,4 +1164,222 @@ export default function Home() {
       </section>
     </main>
   );
+}
+
+function InfographicView({ infographic }: { infographic: InfographicResult }) {
+  return (
+    <div className="infographic-board">
+      <header className="infographic-hero">
+        <span className="eyebrow">Infográfico StudyAI</span>
+        <h3>{infographic.title}</h3>
+        <p>{infographic.centralIdea}</p>
+        {infographic.visualMetaphor && (
+          <div className="visual-metaphor">
+            <strong>Imagem mental</strong>
+            <span>{infographic.visualMetaphor}</span>
+          </div>
+        )}
+      </header>
+
+      <div className="concept-grid">
+        {infographic.sections.map((section, index) => (
+          <section className="concept-card" key={`${section.title}-${index}`}>
+            <div className="concept-card-head">
+              <span>{section.icon || `0${index + 1}`}</span>
+              <strong>{section.title}</strong>
+            </div>
+            <p>{section.summary}</p>
+            <div className="importance-bar" aria-label={`Importância: ${section.importance}%`}>
+              <span style={{ width: `${Math.min(Math.max(section.importance, 35), 100)}%` }} />
+            </div>
+          </section>
+        ))}
+      </div>
+
+      {infographic.connections.length > 0 && (
+        <section className="visual-section">
+          <h4>Como as ideias se conectam</h4>
+          <div className="connection-map">
+            {infographic.connections.map((connection, index) => (
+              <div className="connection-row" key={`${connection.from}-${connection.to}-${index}`}>
+                <strong>{connection.from}</strong>
+                <span>{connection.label}</span>
+                <strong>{connection.to}</strong>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {infographic.timeline.length > 0 && (
+        <section className="visual-section">
+          <h4>Linha do tempo ou etapas</h4>
+          <div className="timeline">
+            {infographic.timeline.map((item, index) => (
+              <div className="timeline-item" key={`${item.label}-${index}`}>
+                <span>{index + 1}</span>
+                <div>
+                  <strong>{item.label}</strong>
+                  <p>{item.detail}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {infographic.comparison.length > 0 && (
+        <section className="visual-section">
+          <h4>Compare para entender</h4>
+          <div className="comparison-grid">
+            {infographic.comparison.map((item, index) => (
+              <div className="comparison-card" key={`${item.left}-${item.right}-${index}`}>
+                <div>
+                  <strong>{item.left}</strong>
+                  <strong>{item.right}</strong>
+                </div>
+                <p>{item.note}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <section className="visual-section split-section">
+        <div>
+          <h4>Resumo rápido</h4>
+          <ul>
+            {infographic.quickSummary.map((item, index) => (
+              <li key={`${item}-${index}`}>{item}</li>
+            ))}
+          </ul>
+        </div>
+        <div>
+          <h4>Treino sem gabarito</h4>
+          <ol>
+            {infographic.reviewQuestions.map((question, index) => (
+              <li key={`${question}-${index}`}>{question}</li>
+            ))}
+          </ol>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function normalizeInfographic(value: unknown): InfographicResult {
+  const candidate = value && typeof value === "object" ? (value as Partial<InfographicResult>) : {};
+  const sections = normalizeArray(candidate.sections).slice(0, 6).map((item, index) => {
+    const section = item as Partial<InfographicResult["sections"][number]>;
+
+    return {
+      title: cleanText(section.title, `Ponto ${index + 1}`),
+      summary: cleanText(section.summary, "Revise este ponto do conteúdo."),
+      icon: cleanText(section.icon, `0${index + 1}`),
+      importance: Number.isFinite(Number(section.importance)) ? Number(section.importance) : 70
+    };
+  });
+
+  return {
+    title: cleanText(candidate.title, "Infográfico de estudo"),
+    centralIdea: cleanText(candidate.centralIdea, "Veja os pontos principais do conteúdo de forma organizada."),
+    visualMetaphor: cleanText(candidate.visualMetaphor, ""),
+    sections:
+      sections.length > 0
+        ? sections
+        : [
+            {
+              title: "Ideia principal",
+              summary: "Revise a ideia central do conteúdo e tente explicá-la com suas próprias palavras.",
+              icon: "01",
+              importance: 80
+            }
+          ],
+    connections: normalizeArray(candidate.connections).slice(0, 4).map((item) => {
+      const connection = item as Partial<InfographicResult["connections"][number]>;
+
+      return {
+        from: cleanText(connection.from, "Ideia A"),
+        to: cleanText(connection.to, "Ideia B"),
+        label: cleanText(connection.label, "se relaciona com")
+      };
+    }),
+    timeline: normalizeArray(candidate.timeline).slice(0, 5).map((item) => {
+      const timelineItem = item as Partial<InfographicResult["timeline"][number]>;
+
+      return {
+        label: cleanText(timelineItem.label, "Etapa"),
+        detail: cleanText(timelineItem.detail, "Ponto importante do conteúdo.")
+      };
+    }),
+    comparison: normalizeArray(candidate.comparison).slice(0, 4).map((item) => {
+      const comparisonItem = item as Partial<InfographicResult["comparison"][number]>;
+
+      return {
+        left: cleanText(comparisonItem.left, "Conceito 1"),
+        right: cleanText(comparisonItem.right, "Conceito 2"),
+        note: cleanText(comparisonItem.note, "Compare estes pontos para entender melhor.")
+      };
+    }),
+    quickSummary: withFallback(
+      normalizeStringArray(candidate.quickSummary).slice(0, 5),
+      ["Explique a ideia principal sem copiar o texto.", "Revise os termos mais importantes do conteúdo."]
+    ),
+    reviewQuestions: withFallback(
+      normalizeStringArray(candidate.reviewQuestions).slice(0, 5),
+      ["Qual é a ideia principal desse conteúdo?", "Como você explicaria esse tema para outra pessoa?"]
+    )
+  };
+}
+
+function normalizeArray(value: unknown) {
+  return Array.isArray(value) ? value : [];
+}
+
+function normalizeStringArray(value: unknown) {
+  return Array.isArray(value)
+    ? value.map((item) => String(item ?? "").trim()).filter(Boolean)
+    : [];
+}
+
+function cleanText(value: unknown, fallback: string) {
+  const text = String(value ?? "").trim();
+  return text || fallback;
+}
+
+function withFallback(items: string[], fallback: string[]) {
+  return items.length > 0 ? items : fallback;
+}
+
+function infographicToPdfText(infographic: InfographicResult) {
+  const lines = [
+    infographic.title,
+    "",
+    `Ideia central: ${infographic.centralIdea}`,
+    infographic.visualMetaphor ? `Imagem mental: ${infographic.visualMetaphor}` : "",
+    "",
+    "Blocos principais:",
+    ...infographic.sections.map(
+      (section) => `- ${section.title}: ${section.summary} (importância: ${section.importance}%)`
+    ),
+    "",
+    "Conexões:",
+    ...infographic.connections.map(
+      (connection) => `- ${connection.from} -> ${connection.to}: ${connection.label}`
+    ),
+    "",
+    "Linha do tempo ou etapas:",
+    ...infographic.timeline.map((item) => `- ${item.label}: ${item.detail}`),
+    "",
+    "Comparações:",
+    ...infographic.comparison.map((item) => `- ${item.left} x ${item.right}: ${item.note}`),
+    "",
+    "Resumo rápido:",
+    ...infographic.quickSummary.map((item) => `- ${item}`),
+    "",
+    "Treino sem gabarito:",
+    ...infographic.reviewQuestions.map((item, index) => `${index + 1}. ${item}`)
+  ];
+
+  return lines.filter((line) => line !== "").join("\n");
 }

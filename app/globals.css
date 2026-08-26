@@ -471,7 +471,7 @@ textarea:disabled {
 
 .mode-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -541,17 +541,222 @@ textarea:disabled {
   background: #fbfcff;
 }
 
-.generated-study pre {
-  margin: 0;
-  white-space: pre-wrap;
-  color: var(--text);
-  font-family: inherit;
-  line-height: 1.65;
-}
-
 .video-list {
   display: grid;
   gap: 12px;
+}
+
+.infographic-board {
+  display: grid;
+  gap: 16px;
+}
+
+.infographic-hero {
+  display: grid;
+  gap: 10px;
+  border: 1px solid rgba(18, 107, 91, 0.18);
+  border-radius: 8px;
+  padding: 18px;
+  background:
+    linear-gradient(135deg, rgba(18, 107, 91, 0.12), rgba(41, 124, 185, 0.1)),
+    #ffffff;
+}
+
+.infographic-hero h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: 1.55rem;
+  line-height: 1.15;
+}
+
+.infographic-hero p {
+  margin: 0;
+  max-width: 760px;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.visual-metaphor {
+  display: grid;
+  gap: 4px;
+  border-left: 4px solid var(--primary);
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.68);
+}
+
+.visual-metaphor strong,
+.visual-section h4 {
+  color: var(--primary-dark);
+}
+
+.concept-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.concept-card {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px;
+  background: #ffffff;
+}
+
+.concept-card-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.concept-card-head span {
+  flex: 0 0 auto;
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: rgba(41, 124, 185, 0.12);
+  color: #1d5f91;
+  font-weight: 900;
+}
+
+.concept-card-head strong {
+  color: var(--text);
+}
+
+.concept-card p,
+.comparison-card p,
+.timeline-item p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.importance-bar {
+  height: 9px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(18, 107, 91, 0.1);
+}
+
+.importance-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--primary), #297cb9);
+}
+
+.visual-section {
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 16px;
+  background: white;
+}
+
+.visual-section h4 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.connection-map,
+.timeline,
+.comparison-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.connection-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+}
+
+.connection-row strong {
+  min-height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  padding: 10px;
+  background: rgba(18, 107, 91, 0.08);
+  color: var(--primary-dark);
+  text-align: center;
+}
+
+.connection-row span {
+  max-width: 210px;
+  border-radius: 999px;
+  padding: 8px 10px;
+  background: rgba(41, 124, 185, 0.1);
+  color: #1d5f91;
+  font-size: 0.86rem;
+  font-weight: 800;
+  text-align: center;
+}
+
+.timeline-item {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 10px;
+}
+
+.timeline-item > span {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--primary);
+  color: white;
+  font-weight: 900;
+}
+
+.timeline-item strong {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--text);
+}
+
+.comparison-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.comparison-card {
+  display: grid;
+  gap: 10px;
+  border-radius: 8px;
+  padding: 12px;
+  background: #f8fafd;
+}
+
+.comparison-card div {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.comparison-card strong {
+  border-radius: 8px;
+  padding: 8px;
+  background: white;
+  color: var(--text);
+  text-align: center;
+}
+
+.split-section {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.split-section ul,
+.split-section ol {
+  margin: 0;
+  padding-left: 20px;
+  color: var(--muted);
+  line-height: 1.6;
 }
 
 .video-card {
@@ -1085,10 +1290,21 @@ textarea:focus {
   .example-showcase,
   .profile-grid,
   .mode-grid,
+  .concept-grid,
+  .comparison-grid,
+  .split-section,
   .source-switch,
   .tabs,
   .chat-composer {
     grid-template-columns: 1fr;
+  }
+
+  .connection-row {
+    grid-template-columns: 1fr;
+  }
+
+  .connection-row span {
+    max-width: none;
   }
 
   .tab {
