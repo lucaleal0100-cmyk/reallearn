@@ -33,7 +33,7 @@ export class GeminiApiError extends Error {
   }
 }
 
-const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash-lite";
+const DEFAULT_GEMINI_MODEL = "gemini-3.5-flash-lite";
 
 export async function generateGeminiContent(payload: GenerateContentPayload) {
   const apiKey = process.env.GEMINI_API_KEY?.trim();
@@ -91,7 +91,15 @@ export async function generateGeminiContent(payload: GenerateContentPayload) {
 
 function getGeminiModel() {
   const model = process.env.GEMINI_MODEL?.trim() || DEFAULT_GEMINI_MODEL;
-  return model.startsWith("models/") ? model.slice("models/".length) : model;
+  const normalized = model.startsWith("models/")
+    ? model.slice("models/".length)
+    : model;
+
+  if (normalized === "gemini-2.5-flash-lite") {
+    return DEFAULT_GEMINI_MODEL;
+  }
+
+  return normalized;
 }
 
 function getFriendlyGeminiError(status: number) {

@@ -50,11 +50,11 @@ No arquivo `.env.local`, configure:
 
 ```env
 GEMINI_API_KEY=sua_chave_do_gemini_aqui
-GEMINI_MODEL=gemini-2.5-flash-lite
+GEMINI_MODEL=gemini-3.5-flash-lite
 YOUTUBE_API_KEY=sua_chave_do_youtube_aqui
 ```
 
-`GEMINI_MODEL` é opcional. O padrão do projeto é `gemini-2.5-flash-lite`, que é mais leve e ajuda a economizar limite gratuito. Para respostas mais fortes, você pode trocar por `gemini-2.5-flash`.
+`GEMINI_MODEL` é opcional. O padrão do projeto é `gemini-3.5-flash-lite`, que é leve e ajuda a economizar limite gratuito.
 
 `YOUTUBE_API_KEY` é necessário apenas para o modo Vídeo buscar links reais.
 
@@ -100,7 +100,7 @@ Adicione:
 
 ```env
 GEMINI_API_KEY=sua_chave_do_gemini
-GEMINI_MODEL=gemini-2.5-flash-lite
+GEMINI_MODEL=gemini-3.5-flash-lite
 YOUTUBE_API_KEY=sua_chave_do_youtube
 ```
 
