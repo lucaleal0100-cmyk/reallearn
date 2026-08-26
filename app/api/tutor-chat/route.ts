@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
-import { GeminiApiError, generateGeminiContent } from "../lib/gemini";
+import {
+  GeminiApiError,
+  generateGeminiContent
+} from "../lib/gemini";
 import { enforceRateLimit } from "../lib/rateLimit";
 
 type ChatMessage = {
@@ -19,22 +22,33 @@ type AnswerContext = {
   answer: string;
 };
 
-const tutorPrompt = `Você é um professor tutor exigente, claro e paciente.
-Sua função é tirar dúvidas do aluno sobre o conteúdo enviado.
-Use o texto do trabalho, as perguntas feitas, as respostas do aluno e a avaliação como contexto principal quando estiverem disponíveis.
-Não entregue gabaritos prontos, respostas completas de atividade, redações finais ou texto para copiar.
-Se o aluno pedir resposta pronta, explique o caminho, faça perguntas orientadoras e dê pistas.
-Se o aluno pedir para você fazer o trabalho por ele, recuse de forma educada e ajude com um roteiro de estudo.
-Ajude o aluno a entender com as próprias palavras.
-Quando o aluno pedir ajuda sobre os conteúdos a melhorar, crie um material de estudo em texto, com explicação didática e perguntas novas de treino.
-As perguntas novas devem ser específicas ao conteúdo em que o aluno teve dificuldade e não devem vir com gabarito.`;
+const tutorPrompt = `Você é o tutor educacional do StudyAI.
+
+Sua função é ajudar o aluno a realmente entender o conteúdo estudado.
+
+Regras:
+- Responda sempre em português do Brasil.
+- Seja claro, direto e didático.
+- Não mostre raciocínio interno.
+- Não entregue gabaritos prontos.
+- Não faça a atividade inteira pelo aluno.
+- Não entregue textos completos para copiar.
+- Explique o conceito e ajude o aluno a raciocinar.
+- Use principalmente o conteúdo enviado pelo aluno.
+- Considere as perguntas, respostas e avaliação quando estiverem disponíveis.
+- Se o aluno tiver dificuldade, simplifique a explicação.
+- Use exemplos simples quando isso ajudar.
+- Se o aluno pedir material de estudo, explique o conteúdo e depois crie novas perguntas de treino.
+- Não coloque gabarito nas perguntas de treino.
+- Evite respostas desnecessariamente longas.`;
 
 export async function POST(request: Request) {
   const rateLimitResponse = enforceRateLimit(request, {
     keyPrefix: "tutor-chat",
     maxRequests: 18,
     windowMs: 60 * 1000,
-    message: "Muitas mensagens em pouco tempo. Aguarde alguns segundos antes de falar com o tutor novamente."
+    message:
+      "Muitas mensagens em pouco tempo. Aguarde alguns segundos antes de falar com o tutor novamente."
   });
 
   if (rateLimitResponse) {
@@ -43,8 +57,10 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
+
     const workText = String(body.workText ?? "").trim();
     const message = String(body.message ?? "").trim();
+
     const history = normalizeHistory(body.history);
     const questions = normalizeQuestions(body.questions);
     const answers = normalizeAnswers(body.answers);
@@ -52,34 +68,61 @@ export async function POST(request: Request) {
 
     if (workText.length < 300) {
       return NextResponse.json(
-        { error: "Adicione um texto ou PDF com pelo menos 300 caracteres antes de usar o chat." },
+        {
+          error:
+            "Adicione um texto ou PDF com pelo menos 300 caracteres antes de usar o chat."
+        },
         { status: 400 }
       );
     }
 
     if (message.length < 2) {
-      return NextResponse.json({ error: "Digite uma dúvida para enviar ao tutor." }, { status: 400 });
-    }
-
-    if (message.length > 1200) {
       return NextResponse.json(
-        { error: "Sua pergunta está muito longa. Reduza para até 1.200 caracteres." },
+        {
+          error: "Digite uma dúvida para enviar ao tutor."
+        },
         { status: 400 }
       );
     }
 
-    const reply = await callGemini(workText, message, history, questions, answers, evaluation);
+    if (message.length > 1200) {
+      return NextResponse.json(
+        {
+          error:
+            "Sua pergunta está muito longa. Reduza para até 1.200 caracteres."
+        },
+        { status: 400 }
+      );
+    }
+
+    const profile = normalizeEvaluation(body.profile);
+
+    const reply = await callGemini(
+      workText,
+      message,
+      history,
+      questions,
+      answers,
+      evaluation,
+      profile
+    );
 
     return NextResponse.json({ reply });
   } catch (error) {
     console.error(error);
 
     if (error instanceof GeminiApiError) {
-      return NextResponse.json({ error: error.message }, { status: error.status });
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status }
+      );
     }
 
     return NextResponse.json(
-      { error: "Ocorreu um erro ao responder a dúvida. Tente novamente em alguns instantes." },
+      {
+        error:
+          "Ocorreu um erro ao responder a dúvida. Tente novamente."
+      },
       { status: 500 }
     );
   }
@@ -91,19 +134,26 @@ function normalizeHistory(value: unknown): ChatMessage[] {
   }
 
   return value
-    .slice(-8)
+    .slice(-6)
     .map((item): ChatMessage => {
       const candidate = item as Partial<ChatMessage>;
 
       return {
-        role: candidate.role === "assistant" ? "assistant" : "user",
-        content: String(candidate.content ?? "").trim().slice(0, 1200)
+        role:
+          candidate.role === "assistant"
+            ? "assistant"
+            : "user",
+        content: String(candidate.content ?? "")
+          .trim()
+          .slice(0, 1000)
       };
     })
     .filter((item) => item.content);
 }
 
-function normalizeQuestions(value: unknown): QuestionContext[] {
+function normalizeQuestions(
+  value: unknown
+): QuestionContext[] {
   if (!Array.isArray(value)) {
     return [];
   }
@@ -111,18 +161,31 @@ function normalizeQuestions(value: unknown): QuestionContext[] {
   return value
     .slice(0, 5)
     .map((item, index): QuestionContext => {
-      const candidate = item as Partial<QuestionContext>;
+      const candidate =
+        item as Partial<QuestionContext>;
 
       return {
-        id: String(candidate.id ?? `q${index + 1}`).trim(),
-        question: String(candidate.question ?? "").trim().slice(0, 1000),
-        focus: String(candidate.focus ?? "").trim().slice(0, 240)
+        id: String(
+          candidate.id ?? `q${index + 1}`
+        ).trim(),
+
+        question: String(
+          candidate.question ?? ""
+        )
+          .trim()
+          .slice(0, 800),
+
+        focus: String(candidate.focus ?? "")
+          .trim()
+          .slice(0, 200)
       };
     })
     .filter((item) => item.question);
 }
 
-function normalizeAnswers(value: unknown): AnswerContext[] {
+function normalizeAnswers(
+  value: unknown
+): AnswerContext[] {
   if (!Array.isArray(value)) {
     return [];
   }
@@ -130,15 +193,30 @@ function normalizeAnswers(value: unknown): AnswerContext[] {
   return value
     .slice(0, 5)
     .map((item, index): AnswerContext => {
-      const candidate = item as Partial<AnswerContext>;
+      const candidate =
+        item as Partial<AnswerContext>;
 
       return {
-        id: String(candidate.id ?? `q${index + 1}`).trim(),
-        question: String(candidate.question ?? "").trim().slice(0, 1000),
-        answer: String(candidate.answer ?? "").trim().slice(0, 1800)
+        id: String(
+          candidate.id ?? `q${index + 1}`
+        ).trim(),
+
+        question: String(
+          candidate.question ?? ""
+        )
+          .trim()
+          .slice(0, 800),
+
+        answer: String(
+          candidate.answer ?? ""
+        )
+          .trim()
+          .slice(0, 1200)
       };
     })
-    .filter((item) => item.question || item.answer);
+    .filter(
+      (item) => item.question || item.answer
+    );
 }
 
 function normalizeEvaluation(value: unknown) {
@@ -155,10 +233,18 @@ async function callGemini(
   history: ChatMessage[],
   questions: QuestionContext[],
   answers: AnswerContext[],
-  evaluation: unknown
+  evaluation: unknown,
+  profile: unknown
 ) {
   const conversation = history
-    .map((item) => `${item.role === "user" ? "Aluno" : "Tutor"}: ${item.content}`)
+    .map(
+      (item) =>
+        `${
+          item.role === "user"
+            ? "Aluno"
+            : "Tutor"
+        }: ${item.content}`
+    )
     .join("\n");
 
   return generateGeminiContent({
@@ -170,25 +256,58 @@ async function callGemini(
         role: "user",
         parts: [
           {
-            text: `Texto do trabalho:
+            text: `CONTEÚDO DO ALUNO:
+
 ${workText.slice(0, 18000)}
 
-Perguntas geradas pelo StudyAI:
-${questions.length ? JSON.stringify(questions, null, 2) : "Nenhuma pergunta gerada ainda."}
+PERGUNTAS DO TESTE:
 
-Respostas do aluno:
-${answers.length ? JSON.stringify(answers, null, 2) : "Nenhuma resposta registrada ainda."}
+${
+  questions.length
+    ? JSON.stringify(questions, null, 2)
+    : "Nenhuma pergunta registrada."
+}
 
-Avaliação do aluno:
-${evaluation ? JSON.stringify(evaluation, null, 2).slice(0, 8000) : "Nenhuma avaliação registrada ainda."}
+RESPOSTAS DO ALUNO:
 
-Histórico recente:
+${
+  answers.length
+    ? JSON.stringify(answers, null, 2)
+    : "Nenhuma resposta registrada."
+}
+
+AVALIAÇÃO:
+
+${
+  evaluation
+    ? JSON.stringify(
+        evaluation,
+        null,
+        2
+      ).slice(0, 4000)
+    : "Nenhuma avaliação registrada."
+}
+
+PERFIL EDUCACIONAL DECLARADO:
+
+${
+  profile
+    ? JSON.stringify(profile, null, 2).slice(0, 3000)
+    : "Nenhum perfil preenchido."
+}
+
+HISTÓRICO RECENTE:
+
 ${conversation || "Sem histórico anterior."}
 
-Dúvida atual do aluno:
+PERGUNTA ATUAL DO ALUNO:
+
 ${message}
 
-Responda em português do Brasil, de forma direta e didática.
+Responda diretamente à pergunta do aluno em português do Brasil.
+Use o conteúdo fornecido como contexto.
+Não mostre raciocínio interno.
+
 Se a dúvida for sobre os conteúdos a melhorar, entregue um material de estudo em texto e depois faça perguntas de treino sobre esse conteúdo, sem gabarito.`
           }
         ]

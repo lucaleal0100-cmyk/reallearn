@@ -26,7 +26,35 @@ type Evaluation = {
   }>;
 };
 
-type Step = "home" | "text" | "answers" | "result" | "chat";
+type LearningProfile = {
+  concentration: string;
+  organization: string;
+  reading: string;
+  comprehension: string;
+  memory: string;
+  stimuli: string;
+  communication: string;
+  preference: string;
+  focusTime: string;
+  diagnosis: string;
+  notes: string;
+};
+
+type StudyMode = "video" | "infographic" | "text" | "interactive";
+type StudyResult = {
+  mode: StudyMode;
+  content: string;
+};
+
+type VideoResult = {
+  title: string;
+  description: string;
+  channel: string;
+  duration: string;
+  url: string;
+};
+
+type Step = "home" | "profile" | "text" | "answers" | "result" | "study" | "chat";
 type InputMode = "paste" | "pdf";
 type ChatMessage = {
   role: "user" | "assistant";
@@ -34,6 +62,20 @@ type ChatMessage = {
 };
 
 const MAX_PDF_SIZE = 10 * 1024 * 1024;
+
+const defaultProfile: LearningProfile = {
+  concentration: "",
+  organization: "",
+  reading: "",
+  comprehension: "",
+  memory: "",
+  stimuli: "",
+  communication: "",
+  preference: "",
+  focusTime: "",
+  diagnosis: "",
+  notes: ""
+};
 
 const levelClass: Record<Evaluation["level"], string> = {
   "entendeu bem": "good",
@@ -56,10 +98,27 @@ export default function Home() {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [isChatLoading, setIsChatLoading] = useState(false);
+  const [profile, setProfile] = useState<LearningProfile>(defaultProfile);
+  const [hasProfile, setHasProfile] = useState(false);
+  const [studyMode, setStudyMode] = useState<StudyMode>("text");
+  const [studyResult, setStudyResult] = useState<StudyResult | null>(null);
+  const [videos, setVideos] = useState<VideoResult[]>([]);
+  const [videoQuery, setVideoQuery] = useState("");
+  const [isStudyLoading, setIsStudyLoading] = useState(false);
 
   const filledAnswers = useMemo(() => {
     return questions.filter((question) => answers[question.id]?.trim()).length;
   }, [answers, questions]);
+
+  const answerList = useMemo(
+    () =>
+      questions.map((question) => ({
+        id: question.id,
+        question: question.question,
+        answer: answers[question.id] ?? ""
+      })),
+    [answers, questions]
+  );
 
   async function requestQuestions() {
     setError("");
@@ -79,7 +138,8 @@ export default function Home() {
         },
         body: JSON.stringify({
           mode: "questions",
-          workText
+          workText,
+          profile: hasProfile ? profile : null
         })
       });
 
@@ -162,12 +222,9 @@ export default function Home() {
         body: JSON.stringify({
           mode: "evaluate",
           workText,
+          profile: hasProfile ? profile : null,
           questions,
-          answers: questions.map((question) => ({
-            id: question.id,
-            question: question.question,
-            answer: answers[question.id]
-          }))
+          answers: answerList
         })
       });
 
@@ -218,11 +275,8 @@ export default function Home() {
           message,
           history: chatMessages,
           questions,
-          answers: questions.map((question) => ({
-            id: question.id,
-            question: question.question,
-            answer: answers[question.id] ?? ""
-          })),
+          answers: answerList,
+          profile: hasProfile ? profile : null,
           evaluation
         })
       });
@@ -248,6 +302,126 @@ export default function Home() {
     );
   }
 
+  function saveProfile() {
+    setError("");
+    setHasProfile(true);
+    setStep("text");
+  }
+
+  function deleteProfile() {
+    setProfile(defaultProfile);
+    setHasProfile(false);
+    setStudyResult(null);
+    setVideos([]);
+    setVideoQuery("");
+  }
+
+  async function generateStudyMode(selectedMode = studyMode) {
+    setError("");
+
+    if (workText.trim().length < 300) {
+      setError("Adicione um texto ou PDF com pelo menos 300 caracteres antes de usar os modos de estudo.");
+      setStep("text");
+      return;
+    }
+
+    setStudyMode(selectedMode);
+    setIsStudyLoading(true);
+
+    try {
+      if (selectedMode === "video") {
+        const response = await fetch("/api/video-search", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            workText,
+            profile: hasProfile ? profile : null,
+            evaluation
+          })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error ?? "Não foi possível buscar vídeos.");
+        }
+
+        setVideoQuery(data.query ?? "");
+        setVideos(data.videos ?? []);
+        setStudyResult(null);
+        return;
+      }
+
+      const response = await fetch("/api/study-tools", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          mode: selectedMode,
+          workText,
+          profile: hasProfile ? profile : null,
+          evaluation,
+          questions,
+          answers: answerList
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error ?? "Não foi possível gerar o estudo.");
+      }
+
+      setStudyResult({ mode: selectedMode, content: data.result });
+      setVideos([]);
+      setVideoQuery("");
+    } catch (studyError) {
+      setError(studyError instanceof Error ? studyError.message : "Erro inesperado ao gerar estudo.");
+    } finally {
+      setIsStudyLoading(false);
+    }
+  }
+
+  async function downloadInfographicPdf() {
+    if (!studyResult?.content) {
+      setError("Gere o infográfico antes de baixar o PDF.");
+      return;
+    }
+
+    setError("");
+
+    try {
+      const response = await fetch("/api/infographic-pdf", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          title: "Infográfico StudyAI",
+          content: studyResult.content
+        })
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error ?? "Não foi possível gerar o PDF.");
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "studyai-infografico.pdf";
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (pdfError) {
+      setError(pdfError instanceof Error ? pdfError.message : "Erro inesperado ao baixar PDF.");
+    }
+  }
+
   function resetAll() {
     setStep("home");
     setWorkText("");
@@ -258,6 +432,9 @@ export default function Home() {
     setPdfInfo("");
     setChatMessages([]);
     setChatInput("");
+    setStudyResult(null);
+    setVideos([]);
+    setVideoQuery("");
     setError("");
   }
 
@@ -301,6 +478,13 @@ export default function Home() {
             <button className={`tab ${step === "home" ? "active" : ""}`} type="button" onClick={() => setStep("home")}>
               Início
             </button>
+            <button
+              className={`tab ${step === "profile" ? "active" : ""}`}
+              type="button"
+              onClick={() => setStep("profile")}
+            >
+              Perfil
+            </button>
             <button className={`tab ${step === "text" ? "active" : ""}`} type="button" onClick={() => setStep("text")}>
               Trabalho
             </button>
@@ -317,6 +501,13 @@ export default function Home() {
               onClick={() => setStep("result")}
             >
               Avaliação
+            </button>
+            <button
+              className={`tab ${step === "study" ? "active" : ""}`}
+              type="button"
+              onClick={() => setStep("study")}
+            >
+              Estudo
             </button>
             <button className={`tab ${step === "chat" ? "active" : ""}`} type="button" onClick={() => setStep("chat")}>
               Chat
@@ -350,7 +541,7 @@ export default function Home() {
                   <div className="step-card">
                     <strong>3</strong>
                     <h3>Veja a avaliação</h3>
-                    <p>Receba um diagnóstico honesto e veja quais conteúdos revisar.</p>
+                    <p>Receba uma avaliação honesta e veja quais conteúdos revisar.</p>
                   </div>
                   <div className="step-card">
                     <strong>4</strong>
@@ -416,8 +607,179 @@ export default function Home() {
                 </div>
 
                 <div className="actions">
-                  <button className="button" type="button" onClick={() => setStep("text")}>
-                    Começar meu teste
+                  <button className="button" type="button" onClick={() => setStep(hasProfile ? "text" : "profile")}>
+                    Começar
+                  </button>
+                </div>
+              </section>
+            )}
+
+            {step === "profile" && (
+              <section className="profile-panel">
+                <div className="section-head">
+                  <span className="eyebrow">Perfil de aprendizagem</span>
+                  <h2>Conte um pouco sobre como você estuda.</h2>
+                  <p>
+                    Essas respostas servem apenas para adaptar a experiência de estudo. O StudyAI não faz diagnóstico
+                    de TDAH, autismo, dislexia ou qualquer condição médica.
+                  </p>
+                </div>
+
+                <div className="privacy-note">
+                  <strong>Privacidade:</strong> o perfil fica só nesta sessão do navegador. Você pode editar ou excluir
+                  quando quiser.
+                </div>
+
+                <div className="profile-grid">
+                  <label>
+                    Concentração
+                    <select
+                      value={profile.concentration}
+                      onChange={(event) => setProfile((current) => ({ ...current, concentration: event.target.value }))}
+                    >
+                      <option value="">Selecione</option>
+                      <option>Consigo focar bem</option>
+                      <option>Perco o foco com facilidade</option>
+                      <option>Preciso de pausas frequentes</option>
+                    </select>
+                  </label>
+
+                  <label>
+                    Organização
+                    <select
+                      value={profile.organization}
+                      onChange={(event) => setProfile((current) => ({ ...current, organization: event.target.value }))}
+                    >
+                      <option value="">Selecione</option>
+                      <option>Gosto de roteiro passo a passo</option>
+                      <option>Prefiro estudar livremente</option>
+                      <option>Tenho dificuldade para organizar o estudo</option>
+                    </select>
+                  </label>
+
+                  <label>
+                    Leitura
+                    <select
+                      value={profile.reading}
+                      onChange={(event) => setProfile((current) => ({ ...current, reading: event.target.value }))}
+                    >
+                      <option value="">Selecione</option>
+                      <option>Leio textos longos sem problema</option>
+                      <option>Prefiro textos curtos</option>
+                      <option>Tenho dificuldade com textos muito densos</option>
+                    </select>
+                  </label>
+
+                  <label>
+                    Compreensão
+                    <select
+                      value={profile.comprehension}
+                      onChange={(event) => setProfile((current) => ({ ...current, comprehension: event.target.value }))}
+                    >
+                      <option value="">Selecione</option>
+                      <option>Entendo melhor com exemplos</option>
+                      <option>Entendo melhor com explicação simples</option>
+                      <option>Preciso que o conteúdo venha por etapas</option>
+                    </select>
+                  </label>
+
+                  <label>
+                    Memória
+                    <select
+                      value={profile.memory}
+                      onChange={(event) => setProfile((current) => ({ ...current, memory: event.target.value }))}
+                    >
+                      <option value="">Selecione</option>
+                      <option>Lembro melhor lendo</option>
+                      <option>Lembro melhor praticando</option>
+                      <option>Esqueço rápido se não revisar</option>
+                    </select>
+                  </label>
+
+                  <label>
+                    Estímulos
+                    <select
+                      value={profile.stimuli}
+                      onChange={(event) => setProfile((current) => ({ ...current, stimuli: event.target.value }))}
+                    >
+                      <option value="">Selecione</option>
+                      <option>Ambiente não me atrapalha muito</option>
+                      <option>Barulho e distrações me atrapalham</option>
+                      <option>Prefiro telas mais limpas e diretas</option>
+                    </select>
+                  </label>
+
+                  <label>
+                    Comunicação
+                    <select
+                      value={profile.communication}
+                      onChange={(event) => setProfile((current) => ({ ...current, communication: event.target.value }))}
+                    >
+                      <option value="">Selecione</option>
+                      <option>Gosto de explicações diretas</option>
+                      <option>Gosto de perguntas guiadas</option>
+                      <option>Gosto de exemplos do cotidiano</option>
+                    </select>
+                  </label>
+
+                  <label>
+                    Preferência de recurso
+                    <select
+                      value={profile.preference}
+                      onChange={(event) => setProfile((current) => ({ ...current, preference: event.target.value }))}
+                    >
+                      <option value="">Selecione</option>
+                      <option>Visual</option>
+                      <option>Texto</option>
+                      <option>Áudio ou vídeo</option>
+                      <option>Atividades práticas</option>
+                    </select>
+                  </label>
+
+                  <label>
+                    Tempo de foco
+                    <select
+                      value={profile.focusTime}
+                      onChange={(event) => setProfile((current) => ({ ...current, focusTime: event.target.value }))}
+                    >
+                      <option value="">Selecione</option>
+                      <option>Até 10 minutos</option>
+                      <option>10 a 20 minutos</option>
+                      <option>20 a 40 minutos</option>
+                      <option>Mais de 40 minutos</option>
+                    </select>
+                  </label>
+
+                  <label>
+                    Diagnóstico informado pelo aluno (opcional)
+                    <input
+                      value={profile.diagnosis}
+                      onChange={(event) => setProfile((current) => ({ ...current, diagnosis: event.target.value }))}
+                      placeholder="Opcional. Ex.: já tenho um diagnóstico informado por profissional"
+                    />
+                  </label>
+                </div>
+
+                <label className="wide-field">
+                  Algo mais que atrapalha ou ajuda seus estudos?
+                  <textarea
+                    value={profile.notes}
+                    onChange={(event) => setProfile((current) => ({ ...current, notes: event.target.value }))}
+                    placeholder="Ex.: prefiro exemplos curtos, preciso revisar várias vezes, gosto de mapas mentais..."
+                  />
+                </label>
+
+                <div className="actions">
+                  <button className="button" type="button" onClick={saveProfile}>
+                    Salvar perfil
+                  </button>
+                  {hasProfile && (
+                    <button className="button secondary" type="button" onClick={deleteProfile}>
+                      Excluir perfil
+                    </button>
+                  )}
+                  <button className="button secondary" type="button" onClick={() => setStep("text")}>
+                    Pular por enquanto
                   </button>
                 </div>
               </section>
@@ -585,11 +947,155 @@ export default function Home() {
                   <button className="button" type="button" onClick={() => setStep("answers")}>
                     Revisar respostas
                   </button>
+                  <button className="button secondary" type="button" onClick={() => setStep("study")}>
+                    Abrir modos de estudo
+                  </button>
                   <button className="button secondary" type="button" onClick={resetAll}>
                     Novo teste
                   </button>
                 </div>
               </>
+            )}
+
+            {step === "study" && (
+              <section className="study-panel">
+                <div className="section-head">
+                  <span className="eyebrow">Modos de estudo</span>
+                  <h2>Escolha como quer estudar este conteúdo.</h2>
+                  <p>
+                    O StudyAI usa seu perfil, o texto enviado e sua avaliação para adaptar a explicação. Você pode
+                    trocar de modo quando quiser.
+                  </p>
+                </div>
+
+                {!hasProfile && (
+                  <div className="privacy-note">
+                    Para uma personalização melhor, preencha o perfil de aprendizagem. O modo de estudo ainda funciona
+                    sem ele.
+                  </div>
+                )}
+
+                <div className="study-guide">
+                  <div>
+                    <strong>Como usar</strong>
+                    <p>
+                      Escolha um modo abaixo para gerar um material adaptado ao seu texto, às suas respostas e ao seu
+                      perfil. Você pode trocar de modo a qualquer momento.
+                    </p>
+                  </div>
+                  <button
+                    className="button"
+                    type="button"
+                    onClick={() => void generateStudyMode(studyMode)}
+                    disabled={isStudyLoading || workText.trim().length < 300}
+                  >
+                    {isStudyLoading ? "Gerando..." : "Gerar modo selecionado"}
+                  </button>
+                </div>
+
+                <div className="mode-grid" aria-label="Modos de estudo">
+                  <button
+                    className={`mode-card ${studyMode === "video" ? "active" : ""}`}
+                    type="button"
+                    onClick={() => void generateStudyMode("video")}
+                    disabled={isStudyLoading}
+                  >
+                    <strong>Vídeo</strong>
+                    <span>Busca vídeos reais e relevantes no YouTube.</span>
+                  </button>
+                  <button
+                    className={`mode-card ${studyMode === "infographic" ? "active" : ""}`}
+                    type="button"
+                    onClick={() => void generateStudyMode("infographic")}
+                    disabled={isStudyLoading}
+                  >
+                    <strong>Infográfico</strong>
+                    <span>Organiza o conteúdo em blocos visuais e resumo.</span>
+                  </button>
+                  <button
+                    className={`mode-card ${studyMode === "text" ? "active" : ""}`}
+                    type="button"
+                    onClick={() => void generateStudyMode("text")}
+                    disabled={isStudyLoading}
+                  >
+                    <strong>Texto</strong>
+                    <span>Explicação personalizada no ritmo do aluno.</span>
+                  </button>
+                  <button
+                    className={`mode-card ${studyMode === "interactive" ? "active" : ""}`}
+                    type="button"
+                    onClick={() => void generateStudyMode("interactive")}
+                    disabled={isStudyLoading}
+                  >
+                    <strong>Estudo Interativo</strong>
+                    <span>Etapas, desafios e perguntas para raciocinar.</span>
+                  </button>
+                </div>
+
+                {workText.trim().length < 300 ? (
+                  <div className="empty-state">Adicione um texto ou PDF na aba Trabalho para liberar os modos.</div>
+                ) : (
+                  <div className="study-output">
+                    {isStudyLoading && <div className="empty-state">Preparando o modo de estudo...</div>}
+
+                    {!isStudyLoading && studyMode === "video" && (
+                      <>
+                        {videoQuery && (
+                          <div className="file-status">
+                            <strong>Busca usada</strong>
+                            <span>{videoQuery}</span>
+                          </div>
+                        )}
+
+                        {videos.length > 0 ? (
+                          <div className="video-list">
+                            {videos.map((video) => (
+                              <article className="video-card" key={video.url}>
+                                <h3>{video.title}</h3>
+                                <p>{video.description || "Descrição não disponível."}</p>
+                                <span>
+                                  {video.channel} • {video.duration}
+                                </span>
+                                <a href={video.url} target="_blank" rel="noreferrer">
+                                  Abrir vídeo original
+                                </a>
+                              </article>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="empty-state">Clique em Vídeo para buscar aulas sobre este conteúdo.</div>
+                        )}
+                      </>
+                    )}
+
+                    {!isStudyLoading && studyResult && studyMode !== "video" && (
+                      <article className="generated-study">
+                        <pre>{studyResult.content}</pre>
+                        {studyResult.mode === "infographic" && (
+                          <button className="button" type="button" onClick={() => void downloadInfographicPdf()}>
+                            Baixar PDF
+                          </button>
+                        )}
+                      </article>
+                    )}
+
+                    {!isStudyLoading && !studyResult && studyMode !== "video" && (
+                      <div className="empty-state">
+                        Clique em um modo acima ou em Gerar modo selecionado para criar seu estudo personalizado.
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div className="actions">
+                  <button className="button secondary" type="button" onClick={() => setStep("profile")}>
+                    Editar perfil
+                  </button>
+                  <button className="button secondary" type="button" onClick={() => setStep("text")}>
+                    Voltar ao trabalho
+                  </button>
+                </div>
+              </section>
             )}
 
             {step === "chat" && (

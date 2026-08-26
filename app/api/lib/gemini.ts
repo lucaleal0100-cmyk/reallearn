@@ -33,13 +33,16 @@ export class GeminiApiError extends Error {
   }
 }
 
-const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
+const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash-lite";
 
 export async function generateGeminiContent(payload: GenerateContentPayload) {
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY?.trim();
 
-  if (!apiKey) {
-    throw new GeminiApiError("A variável GEMINI_API_KEY não foi configurada no .env.local.", 500);
+  if (!apiKey || apiKey.includes("coloque_sua_chave")) {
+    throw new GeminiApiError(
+      "A variável GEMINI_API_KEY não foi configurada no .env.local.",
+      500
+    );
   }
 
   const model = getGeminiModel();
@@ -67,14 +70,20 @@ export async function generateGeminiContent(payload: GenerateContentPayload) {
     const errorText = await response.text();
     console.error(`Erro na API Gemini (${response.status}): ${errorText}`);
 
-    throw new GeminiApiError(getFriendlyGeminiError(response.status), getFriendlyHttpStatus(response.status));
+    throw new GeminiApiError(
+      getFriendlyGeminiError(response.status),
+      getFriendlyHttpStatus(response.status)
+    );
   }
 
   const data = (await response.json()) as GeminiResponse;
   const outputText = extractOutputText(data);
 
   if (!outputText) {
-    throw new GeminiApiError("A IA não retornou texto. Tente novamente em alguns instantes.", 502);
+    throw new GeminiApiError(
+      "A IA não retornou texto. Tente novamente em alguns instantes.",
+      502
+    );
   }
 
   return outputText;
