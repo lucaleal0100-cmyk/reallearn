@@ -589,8 +589,8 @@ export default function Home() {
             className="brand-logo"
             src="/studyai-logo.svg"
             alt="StudyAI"
-            width={180}
-            height={76}
+            width={220}
+            height={82}
             priority
           />
         </div>
@@ -625,7 +625,7 @@ export default function Home() {
       <section className="hero">
         <div className="intro">
           <span className="intro-label">Estudo personalizado com IA</span>
-          <h1>StudyAI - Aprenda mais. Dependa menos.</h1>
+          <h1>Aprenda mais. Dependa menos.</h1>
           <p>
             Envie um texto ou PDF, responda perguntas sobre o conteúdo e veja exatamente quais
             temas precisam de mais atenção.
