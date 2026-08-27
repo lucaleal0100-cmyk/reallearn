@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { extractPdfText } from "./lib/extractPdfText";
 
 type Question = {
@@ -90,7 +90,17 @@ type ChatMessage = {
   content: string;
 };
 
+type Plan = "free" | "plus";
+type AuthMode = "login" | "signup";
+
+type AuthUser = {
+  name: string;
+  email: string;
+  plan: Plan;
+};
+
 const MAX_PDF_SIZE = 10 * 1024 * 1024;
+const AUTH_STORAGE_KEY = "studyai-user";
 
 const defaultProfile: LearningProfile = {
   concentration: "",
@@ -134,6 +144,34 @@ export default function Home() {
   const [videos, setVideos] = useState<VideoResult[]>([]);
   const [videoQuery, setVideoQuery] = useState("");
   const [isStudyLoading, setIsStudyLoading] = useState(false);
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
+  const [authMode, setAuthMode] = useState<AuthMode>("login");
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [isPlansOpen, setIsPlansOpen] = useState(false);
+  const [authError, setAuthError] = useState("");
+  const [authForm, setAuthForm] = useState({
+    name: "",
+    email: "",
+    password: ""
+  });
+
+  useEffect(() => {
+    const savedUser = window.localStorage.getItem(AUTH_STORAGE_KEY);
+
+    if (!savedUser) {
+      return;
+    }
+
+    try {
+      const parsedUser = JSON.parse(savedUser) as AuthUser;
+
+      if (parsedUser.email && parsedUser.name) {
+        setAuthUser(parsedUser);
+      }
+    } catch {
+      window.localStorage.removeItem(AUTH_STORAGE_KEY);
+    }
+  }, []);
 
   const filledAnswers = useMemo(() => {
     return questions.filter((question) => answers[question.id]?.trim()).length;
@@ -467,6 +505,81 @@ export default function Home() {
     setError("");
   }
 
+  function openAuth(mode: AuthMode) {
+    setAuthMode(mode);
+    setAuthError("");
+    setIsAuthOpen(true);
+  }
+
+  function saveUser(user: AuthUser) {
+    setAuthUser(user);
+    window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
+  }
+
+  function submitAuth() {
+    const email = authForm.email.trim().toLowerCase();
+    const name = authForm.name.trim();
+    const password = authForm.password.trim();
+
+    setAuthError("");
+
+    if (!email.includes("@")) {
+      setAuthError("Digite um e-mail válido.");
+      return;
+    }
+
+    if (password.length < 6) {
+      setAuthError("Use uma senha com pelo menos 6 caracteres.");
+      return;
+    }
+
+    const savedUserText = window.localStorage.getItem(AUTH_STORAGE_KEY);
+    let savedUser: AuthUser | null = null;
+
+    try {
+      savedUser = savedUserText ? (JSON.parse(savedUserText) as AuthUser) : null;
+    } catch {
+      window.localStorage.removeItem(AUTH_STORAGE_KEY);
+    }
+
+    if (authMode === "login") {
+      if (!savedUser || savedUser.email.toLowerCase() !== email) {
+        setAuthError("Cadastre-se primeiro neste navegador para entrar.");
+        return;
+      }
+
+      saveUser(savedUser);
+      setIsAuthOpen(false);
+      setAuthForm({ name: "", email: "", password: "" });
+      return;
+    }
+
+    if (name.length < 2) {
+      setAuthError("Digite seu nome para criar a conta.");
+      return;
+    }
+
+    saveUser({ name, email, plan: "free" });
+    setIsAuthOpen(false);
+    setAuthForm({ name: "", email: "", password: "" });
+  }
+
+  function logout() {
+    setAuthUser(null);
+    window.localStorage.removeItem(AUTH_STORAGE_KEY);
+  }
+
+  function choosePlan(plan: Plan) {
+    if (!authUser) {
+      setIsPlansOpen(false);
+      openAuth("signup");
+      return;
+    }
+
+    saveUser({ ...authUser, plan });
+    setIsPlansOpen(false);
+  }
+
   return (
     <main className="page">
       <header className="topbar">
@@ -474,7 +587,32 @@ export default function Home() {
           <div className="brand-mark">SA</div>
           <span>StudyAI</span>
         </div>
-        <div className="badge">IA para estudar melhor</div>
+        <div className="topbar-actions">
+          <button className="button upgrade-button" type="button" onClick={() => setIsPlansOpen(true)}>
+            Fazer upgrade
+          </button>
+
+          {authUser ? (
+            <div className="account-box">
+              <div>
+                <strong>{authUser.name}</strong>
+                <span>{authUser.plan === "plus" ? "Plano Plus" : "Plano gratuito"}</span>
+              </div>
+              <button className="button secondary small-button" type="button" onClick={logout}>
+                Sair
+              </button>
+            </div>
+          ) : (
+            <div className="auth-actions">
+              <button className="button secondary small-button" type="button" onClick={() => openAuth("login")}>
+                Entrar
+              </button>
+              <button className="button small-button" type="button" onClick={() => openAuth("signup")}>
+                Cadastrar
+              </button>
+            </div>
+          )}
+        </div>
       </header>
 
       <section className="hero">
@@ -1162,6 +1300,153 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      <footer className="site-footer">
+        <div>
+          <strong>StudyAI</strong>
+          <p>Ferramenta escolar com IA para testar entendimento, revisar conteúdos e estudar melhor.</p>
+        </div>
+        <div>
+          <span>E-mail</span>
+          <a href="mailto:contato@studyai.app">contato@studyai.app</a>
+        </div>
+        <div>
+          <span>Telefone</span>
+          <a href="tel:+5500000000000">(00) 00000-0000</a>
+        </div>
+        <div>
+          <span>Parcerias</span>
+          <p>Gemini API do Google</p>
+        </div>
+      </footer>
+
+      {isAuthOpen && (
+        <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="auth-title">
+          <section className="modal-card auth-modal">
+            <div className="modal-head">
+              <div>
+                <span className="eyebrow">Conta StudyAI</span>
+                <h2 id="auth-title">{authMode === "login" ? "Entrar na conta" : "Criar cadastro"}</h2>
+              </div>
+              <button className="icon-button" type="button" onClick={() => setIsAuthOpen(false)} aria-label="Fechar">
+                x
+              </button>
+            </div>
+
+            <div className="auth-switch" aria-label="Tipo de acesso">
+              <button
+                className={authMode === "login" ? "active" : ""}
+                type="button"
+                onClick={() => setAuthMode("login")}
+              >
+                Login
+              </button>
+              <button
+                className={authMode === "signup" ? "active" : ""}
+                type="button"
+                onClick={() => setAuthMode("signup")}
+              >
+                Cadastro
+              </button>
+            </div>
+
+            <div className="auth-form">
+              {authMode === "signup" && (
+                <label>
+                  Nome
+                  <input
+                    value={authForm.name}
+                    onChange={(event) => setAuthForm((current) => ({ ...current, name: event.target.value }))}
+                    placeholder="Seu nome"
+                  />
+                </label>
+              )}
+              <label>
+                E-mail
+                <input
+                  value={authForm.email}
+                  onChange={(event) => setAuthForm((current) => ({ ...current, email: event.target.value }))}
+                  placeholder="voce@email.com"
+                  type="email"
+                />
+              </label>
+              <label>
+                Senha
+                <input
+                  value={authForm.password}
+                  onChange={(event) => setAuthForm((current) => ({ ...current, password: event.target.value }))}
+                  placeholder="Mínimo de 6 caracteres"
+                  type="password"
+                />
+              </label>
+
+              <p className="auth-note">
+                Esta primeira versão salva apenas nome, e-mail e plano no navegador. A senha não é armazenada.
+              </p>
+
+              {authError && <div className="alert compact-alert">{authError}</div>}
+
+              <button className="button" type="button" onClick={submitAuth}>
+                {authMode === "login" ? "Entrar" : "Criar cadastro"}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {isPlansOpen && (
+        <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="plans-title">
+          <section className="modal-card plans-modal">
+            <div className="modal-head">
+              <div>
+                <span className="eyebrow">Planos</span>
+                <h2 id="plans-title">Escolha como quer usar o StudyAI.</h2>
+              </div>
+              <button className="icon-button" type="button" onClick={() => setIsPlansOpen(false)} aria-label="Fechar">
+                x
+              </button>
+            </div>
+
+            <div className="plans-grid">
+              <article className="plan-card">
+                <span>Gratuito</span>
+                <h3>R$ 0</h3>
+                <p>Para testar o estudo com IA e usar as funções principais.</p>
+                <ul>
+                  <li>Colar texto e enviar PDF</li>
+                  <li>5 perguntas personalizadas</li>
+                  <li>Avaliação de entendimento</li>
+                  <li>Chat tutor e modos de estudo</li>
+                  <li>Limite diário padrão da API</li>
+                </ul>
+                <button className="button secondary" type="button" onClick={() => choosePlan("free")}>
+                  Usar gratuito
+                </button>
+              </article>
+
+              <article className="plan-card highlighted">
+                <span>Plus</span>
+                <h3>R$ 19,90/mês</h3>
+                <p>Para quem quer estudar mais vezes e ter uma experiência mais completa.</p>
+                <ul>
+                  <li>Mais testes e mensagens por dia</li>
+                  <li>Infográficos mais completos</li>
+                  <li>Prioridade para novas funções</li>
+                  <li>Organização avançada do estudo</li>
+                  <li>Suporte por contato direto</li>
+                </ul>
+                <button className="button" type="button" onClick={() => choosePlan("plus")}>
+                  Escolher Plus
+                </button>
+              </article>
+            </div>
+
+            <p className="auth-note">
+              O upgrade ainda é demonstrativo no localhost. Pagamento real pode ser integrado depois.
+            </p>
+          </section>
+        </div>
+      )}
     </main>
   );
 }
