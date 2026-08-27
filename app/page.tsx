@@ -1315,11 +1315,11 @@ export default function Home() {
         </div>
         <div>
           <span>E-mail</span>
-          <a href="mailto:contato@studyai.app">contato@studyai.app</a>
+          <a href="mailto:contato@studyai.com.br">contato@studyai.com.br</a>
         </div>
         <div>
           <span>Telefone</span>
-          <a href="tel:+5500000000000">(00) 00000-0000</a>
+          <a href="tel:+5511940202026">(11) 94020-2026</a>
         </div>
         <div>
           <span>Parcerias</span>
