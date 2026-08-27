@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { extractPdfText } from "./lib/extractPdfText";
 
@@ -584,8 +585,14 @@ export default function Home() {
     <main className="page">
       <header className="topbar">
         <div className="brand">
-          <div className="brand-mark">SA</div>
-          <span>StudyAI</span>
+          <Image
+            className="brand-logo"
+            src="/studyai-logo.svg"
+            alt="StudyAI"
+            width={180}
+            height={76}
+            priority
+          />
         </div>
         <div className="topbar-actions">
           <button className="button upgrade-button" type="button" onClick={() => setIsPlansOpen(true)}>
@@ -618,7 +625,7 @@ export default function Home() {
       <section className="hero">
         <div className="intro">
           <span className="intro-label">Estudo personalizado com IA</span>
-          <h1>Entenda melhor o que você estudou.</h1>
+          <h1>StudyAI - Aprenda mais. Dependa menos.</h1>
           <p>
             Envie um texto ou PDF, responda perguntas sobre o conteúdo e veja exatamente quais
             temas precisam de mais atenção.

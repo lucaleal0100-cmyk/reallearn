@@ -75,15 +75,10 @@ textarea:disabled {
   letter-spacing: 0;
 }
 
-.brand-mark {
-  display: grid;
-  width: 42px;
-  height: 42px;
-  place-items: center;
-  border-radius: 8px;
-  background: var(--primary);
-  color: white;
-  font-weight: 900;
+.brand-logo {
+  width: 176px;
+  height: auto;
+  display: block;
 }
 
 .badge {

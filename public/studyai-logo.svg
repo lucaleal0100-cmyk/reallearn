@@ -1,0 +1,19 @@
+<svg width="360" height="152" viewBox="0 0 360 152" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="360" height="152" rx="18" fill="white"/>
+  <path d="M62 86C43 77 28 78 18 84V37C29 31 45 32 62 41V86Z" fill="white" stroke="#0B7B4B" stroke-width="7" stroke-linejoin="round"/>
+  <path d="M62 86C81 77 96 78 106 84V37C95 31 79 32 62 41V86Z" fill="white" stroke="#0B7B4B" stroke-width="7" stroke-linejoin="round"/>
+  <path d="M18 94C31 88 45 90 62 100C79 90 93 88 106 94" stroke="#0B7B4B" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M62 37C49 37 39 27 39 16C39 5 49 -3 61 -3C73 -3 84 5 84 17C96 19 104 29 104 41C104 55 93 65 80 65H47C34 65 24 55 24 42C24 30 32 20 43 17C44 6 52 -1 62 -1V37Z" transform="translate(0 12)" fill="#38B54A" stroke="#38B54A" stroke-width="5" stroke-linejoin="round"/>
+  <path d="M62 22V75" stroke="white" stroke-width="5" stroke-linecap="round"/>
+  <path d="M62 32H51L45 39" stroke="white" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M62 45H75L83 37" stroke="white" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M62 58H50L43 51" stroke="white" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M62 69H75L82 76" stroke="white" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="44" cy="40" r="4" fill="white"/>
+  <circle cx="84" cy="36" r="4" fill="white"/>
+  <circle cx="42" cy="50" r="4" fill="white"/>
+  <circle cx="83" cy="77" r="4" fill="white"/>
+  <text x="132" y="98" fill="#159447" font-family="Arial, Helvetica, sans-serif" font-size="58" font-weight="800" letter-spacing="-1">
+    StudyAI
+  </text>
+</svg>
