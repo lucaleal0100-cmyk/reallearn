@@ -1323,7 +1323,16 @@ export default function Home() {
         </div>
         <div>
           <span>Parcerias</span>
-          <p>Gemini API do Google</p>
+          <div className="partner-list" aria-label="Parcerias">
+            <span className="partner-item">
+              <Image src="/gemini-logo.svg" alt="" width={28} height={28} />
+              Gemini API
+            </span>
+            <span className="partner-item">
+              <Image src="/chrome-logo.svg" alt="" width={28} height={28} />
+              Google Chrome
+            </span>
+          </div>
         </div>
       </footer>
 
